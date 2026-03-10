@@ -1080,18 +1080,46 @@ function RoommateInvite({ onAccept, onReject }) {
         <h2 className="form-title">Create your account</h2>
         <p className="form-subtitle">Join {house.name} as a roommate</p>
         <div className="form-grid">
-          {[["Full Name", "name", "text", "Your full name"], ["Email", "email", "email", "you@email.com"], ["Password", "password", "password", "Create a strong password"]].map(([label, key, type, ph]) => (
-            <div key={key} className="input-group">
-              <label>{label}</label>
-              <input className="input-field" type={type} placeholder={ph} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} />
-            </div>
-          ))}
+          {(() => {
+            const isEmailValid = (value) => /\S+@\S+\.\S+/.test(value);
+            const isPasswordValid = (value) => value.length >= 8;
+            const nameError = !form.name && touched?.name ? "Name is required" : "";
+            const emailError = touched?.email && !isEmailValid(form.email) ? "Enter a valid email address" : "";
+            const passwordError = touched?.password && !isPasswordValid(form.password) ? "Password must be at least 8 characters" : "";
+
+            return [["Full Name", "name", "text", "Your full name"], ["Email", "email", "email", "you@email.com"], ["Password", "password", "password", "Min. 8 characters"]].map(
+              ([label, key, type, ph]) => (
+                <div key={key} className="input-group">
+                  <label>{label}</label>
+                  <input
+                    className="input-field"
+                    type={type}
+                    placeholder={ph}
+                    value={form[key]}
+                    onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+                    onBlur={() => setTouched?.(t => ({ ...t, [key]: true }))}
+                  />
+                  {key === "name" && nameError && <span style={{ fontSize: 11, color: "var(--rose)" }}>{nameError}</span>}
+                  {key === "email" && emailError && <span style={{ fontSize: 11, color: "var(--rose)" }}>{emailError}</span>}
+                  {key === "password" && passwordError && <span style={{ fontSize: 11, color: "var(--rose)" }}>{passwordError}</span>}
+                </div>
+              ),
+            );
+          })()}
         </div>
         <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
           <button className="btn btn-outline" onClick={() => setStep("view")}>← Back</button>
-          <button className="btn btn-amber" style={{ flex: 1, justifyContent: "center" }}
-            disabled={!form.name || !form.email || !form.password}
-            onClick={() => setStep("payment")}>
+          <button
+            className="btn btn-amber"
+            style={{ flex: 1, justifyContent: "center" }}
+            disabled={
+              !form.name ||
+              !/\S+@\S+\.\S+/.test(form.email) ||
+              !form.password ||
+              form.password.length < 8
+            }
+            onClick={() => setStep("payment")}
+          >
             Continue to Payment →
           </button>
         </div>

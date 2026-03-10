@@ -271,7 +271,16 @@ function StepInvite({ onNext, onDecline }) {
 // ── Step 2: Create Account ────────────────────────────────────────
 function StepSignup({ onNext, onBack }) {
   const [form, setForm] = useState({ name:"", email:"", password:"" });
-  const canContinue = form.name && form.email && form.password.length >= 6;
+  const [touched, setTouched] = useState({ name:false, email:false, password:false });
+
+  const isEmailValid = (value) => /\S+@\S+\.\S+/.test(value);
+  const isPasswordValid = (value) => value.length >= 8;
+
+  const nameError = !form.name && touched.name ? "Name is required" : "";
+  const emailError = touched.email && !isEmailValid(form.email) ? "Enter a valid email address" : "";
+  const passwordError = touched.password && !isPasswordValid(form.password) ? "Password must be at least 8 characters" : "";
+
+  const canContinue = form.name && isEmailValid(form.email) && isPasswordValid(form.password);
   return (
     <div className="form-page" style={{ paddingTop:40 }}>
       <div className="form-card fade-up">
@@ -279,10 +288,20 @@ function StepSignup({ onNext, onBack }) {
         <h2 className="form-title">Create your account</h2>
         <p className="form-subtitle">Join {HOUSE.name} as a roommate</p>
         <div className="form-grid">
-          {[["Full Name","name","text","Rohan Das"],["Email Address","email","email","you@email.com"],["Password","password","password","Min. 6 characters"]].map(([label,key,type,ph])=>(
+          {[["Full Name","name","text","Rohan Das"],["Email Address","email","email","you@email.com"],["Password","password","password","Min. 8 characters"]].map(([label,key,type,ph])=>(
             <div key={key} className="input-group">
               <label>{label}</label>
-              <input className="input-field" type={type} placeholder={ph} value={form[key]} onChange={e=>setForm(p=>({...p,[key]:e.target.value}))} />
+              <input
+                className="input-field"
+                type={type}
+                placeholder={ph}
+                value={form[key]}
+                onChange={e=>setForm(p=>({...p,[key]:e.target.value}))}
+                onBlur={()=>setTouched(t=>({...t,[key]:true}))}
+              />
+              {key==="name" && nameError && <span style={{ fontSize:11, color:"var(--rose)" }}>{nameError}</span>}
+              {key==="email" && emailError && <span style={{ fontSize:11, color:"var(--rose)" }}>{emailError}</span>}
+              {key==="password" && passwordError && <span style={{ fontSize:11, color:"var(--rose)" }}>{passwordError}</span>}
             </div>
           ))}
         </div>
