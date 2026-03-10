@@ -248,7 +248,7 @@ const INITIAL_DATA = {
 };
 
 // ─── UTILITIES ────────────────────────────────────────────────────────────────
-const initials = (name) => name.split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase();
+const initials = (name) => name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 const currency = (n) => `₹${n.toLocaleString("en-IN")}`;
 const vibeConfig = { free: { label: "Free", emoji: "😊", color: "#22c55e", dot: "dot-green" }, busy: { label: "Busy", emoji: "📚", color: "#2563eb", dot: "dot-amber" }, dnd: { label: "Do Not Disturb", emoji: "🔕", color: "#dc2626", dot: "dot-rose" } };
 
@@ -283,20 +283,20 @@ function Landing({ onGoAdmin, onGoRoommate, onGoInvite }) {
       {/* bg decoration */}
       <div style={{ position: "absolute", top: -120, right: -120, width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(37,99,235,0.18) 0%, transparent 70%)" }} />
       <div style={{ position: "absolute", bottom: -80, left: -80, width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(29,78,216,0.2) 0%, transparent 70%)" }} />
-      
+
       <div className="fade-up" style={{ textAlign: "center", maxWidth: 620, position: "relative" }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.08)", borderRadius: 100, padding: "8px 20px", marginBottom: 32 }}>
           <span style={{ fontSize: 20 }}>🏠</span>
           <span style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, color: "rgba(255,255,255,0.7)", fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>Co-Living Harmony</span>
         </div>
-        
+
         <h1 style={{ fontFamily: "Plus Jakarta Sans", fontSize: "clamp(42px,7vw,72px)", fontWeight: 800, color: "white", lineHeight: 1.05, letterSpacing: "-0.04em", marginBottom: 20 }}>
           Your shared home,<br /><span style={{ color: "var(--amber-light)" }}>beautifully managed.</span>
         </h1>
         <p style={{ fontSize: 18, color: "rgba(255,255,255,0.5)", lineHeight: 1.7, marginBottom: 48, fontWeight: 300 }}>
           Rent tracking, chore rotation, expense splitting, and roommate vibes — all in one dashboard built for co-living harmony.
         </p>
-        
+
         <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
           <button className="btn btn-amber btn-lg" onClick={onGoAdmin}>
             🏡 Admin — Create a House
@@ -305,7 +305,7 @@ function Landing({ onGoAdmin, onGoRoommate, onGoInvite }) {
             🙋 I'm a Roommate
           </button>
         </div>
-        
+
         <div style={{ marginTop: 64, display: "flex", gap: 32, justifyContent: "center", flexWrap: "wrap" }}>
           {[["🔐", "Secure Invites"], ["💳", "UPI Payments"], ["📊", "Expense Ledger"], ["🔄", "Chore Rotation"]].map(([icon, label]) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.5)", fontSize: 14, fontFamily: "Plus Jakarta Sans", fontWeight: 500 }}>
@@ -324,6 +324,7 @@ const EMPTY_ROOMMATE = { name: "", email: "", phone: "", rentShare: "", deposit:
 function AdminRegistration({ onComplete }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", houseName: "", rent: "", agreement: null, upiId: "", upiApp: "googlepay", qrFile: null, qrPreview: null });
+  const [touched, setTouched] = useState({});
   const [roommates, setRoomates] = useState([{ ...EMPTY_ROOMMATE, id: Date.now() }]);
   const [sentEmails, setSentEmails] = useState([]);
   const [sending, setSending] = useState(false);
@@ -331,12 +332,17 @@ function AdminRegistration({ onComplete }) {
   const qrRef = useRef(null);
 
   const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const setT = (k) => setTouched(p => ({ ...p, [k]: true }));
   const setRM = (id, k, v) => setRoomates(p => p.map(r => r.id === id ? { ...r, [k]: v } : r));
   const addRM = () => setRoomates(p => [...p, { ...EMPTY_ROOMMATE, id: Date.now() }]);
   const removeRM = (id) => setRoomates(p => p.filter(r => r.id !== id));
 
+  const isEmailValid = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const isPhoneValid = (phone) => /^\+?[\d\s-]{10,}$/.test(phone);
+  const isAddressValid = (address) => /\b[1-9][0-9]{5}\b/.test(address);
+
   const stepLabels = ["Your Info", "House Setup", "Add Roommates", "Send Invites"];
-  const canNext1 = form.name && form.email && form.phone;
+  const canNext1 = form.name && form.email && isEmailValid(form.email) && form.phone && isPhoneValid(form.phone) && form.address && isAddressValid(form.address);
   const canNext2 = form.houseName && form.rent && form.upiId;
   const canNext3 = roommates.length > 0 && roommates.every(r => r.name && r.email && r.rentShare);
 
@@ -382,7 +388,7 @@ function AdminRegistration({ onComplete }) {
 
         {/* Step progress */}
         <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-          {[1,2,3,4].map(s => (
+          {[1, 2, 3, 4].map(s => (
             <div key={s} style={{ flex: 1, height: 4, borderRadius: 100, background: s <= step ? "var(--amber)" : "var(--border)", transition: "background 0.35s" }} />
           ))}
         </div>
@@ -407,16 +413,19 @@ function AdminRegistration({ onComplete }) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div className="input-group">
                   <label>Email</label>
-                  <input className="input-field" type="email" placeholder="you@email.com" value={form.email} onChange={e => setF("email", e.target.value)} />
+                  <input className="input-field" type="email" placeholder="you@email.com" value={form.email} onChange={e => setF("email", e.target.value)} onBlur={() => setT("email")} />
+                  {touched.email && form.email && !isEmailValid(form.email) && <span style={{ fontSize: 11, color: "var(--rose)" }}>Enter a valid email address</span>}
                 </div>
                 <div className="input-group">
                   <label>Phone</label>
-                  <input className="input-field" placeholder="+91 98765 43210" value={form.phone} onChange={e => setF("phone", e.target.value)} />
+                  <input className="input-field" placeholder="+91 98765 43210" value={form.phone} onChange={e => setF("phone", e.target.value)} onBlur={() => setT("phone")} />
+                  {touched.phone && form.phone && !isPhoneValid(form.phone) && <span style={{ fontSize: 11, color: "var(--rose)" }}>Enter a valid phone number (min 10 digits)</span>}
                 </div>
               </div>
               <div className="input-group">
                 <label>Permanent Address</label>
-                <textarea className="input-field" rows={2} placeholder="Your home address..." value={form.address} onChange={e => setF("address", e.target.value)} />
+                <textarea className="input-field" rows={2} placeholder="Your home address (include 6-digit PIN code)..." value={form.address} onChange={e => setF("address", e.target.value)} onBlur={() => setT("address")} />
+                {touched.address && form.address && !isAddressValid(form.address) && <span style={{ fontSize: 11, color: "var(--rose)" }}>Provide a valid address including a 6-digit PIN Code</span>}
               </div>
             </div>
           </>
@@ -428,7 +437,7 @@ function AdminRegistration({ onComplete }) {
             <h2 className="form-title">Set up your house</h2>
             <p className="form-subtitle">Configure your shared living space & payment details</p>
             <div className="form-grid">
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div className="input-group">
                   <label>House Name</label>
                   <input className="input-field" placeholder="e.g. Sunrise Villa" value={form.houseName} onChange={e => setF("houseName", e.target.value)} />
@@ -440,19 +449,19 @@ function AdminRegistration({ onComplete }) {
               </div>
 
               {/* ── PAYMENT DETAILS SECTION ── */}
-              <div style={{ background:"var(--cream)", borderRadius:14, padding:18, border:"1.5px solid var(--border)" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
-                  <div style={{ width:32, height:32, borderRadius:8, background:"var(--amber)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>💳</div>
+              <div style={{ background: "var(--cream)", borderRadius: 14, padding: 18, border: "1.5px solid var(--border)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--amber)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>💳</div>
                   <div>
-                    <div style={{ fontFamily:"Plus Jakarta Sans", fontWeight:700, fontSize:14 }}>Payment Details</div>
-                    <div style={{ fontSize:12, color:"var(--muted)" }}>Roommates will pay rent to this UPI ID</div>
+                    <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 14 }}>Payment Details</div>
+                    <div style={{ fontSize: 12, color: "var(--muted)" }}>Roommates will pay rent to this UPI ID</div>
                   </div>
                 </div>
 
                 {/* UPI App selector */}
-                <div className="input-group" style={{ marginBottom:14 }}>
+                <div className="input-group" style={{ marginBottom: 14 }}>
                   <label>Preferred UPI App</label>
-                  <div style={{ display:"flex", gap:10 }}>
+                  <div style={{ display: "flex", gap: 10 }}>
                     {[
                       {
                         id: "googlepay", label: "Google Pay",
@@ -461,12 +470,12 @@ function AdminRegistration({ onComplete }) {
                         selectedBorder: "#4285F4",
                         icon: (
                           <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
-                            <circle cx="24" cy="24" r="24" fill="white"/>
+                            <circle cx="24" cy="24" r="24" fill="white" />
                             <text x="24" y="30" textAnchor="middle" fontSize="22" fontFamily="Arial">G</text>
-                            <path d="M24 14 C18.5 14 14 18.5 14 24 C14 29.5 18.5 34 24 34 C29.5 34 34 29.5 34 24 L24 24 Z" fill="#4285F4"/>
-                            <path d="M24 14 C29.5 14 34 18.5 34 24 L24 24 Z" fill="#EA4335"/>
-                            <path d="M14 24 C14 20.5 15.5 17.5 18 15.5 L24 24 Z" fill="#FBBC05"/>
-                            <path d="M18 15.5 C20 13.9 22 13 24 14 L24 24 Z" fill="#34A853"/>
+                            <path d="M24 14 C18.5 14 14 18.5 14 24 C14 29.5 18.5 34 24 34 C29.5 34 34 29.5 34 24 L24 24 Z" fill="#4285F4" />
+                            <path d="M24 14 C29.5 14 34 18.5 34 24 L24 24 Z" fill="#EA4335" />
+                            <path d="M14 24 C14 20.5 15.5 17.5 18 15.5 L24 24 Z" fill="#FBBC05" />
+                            <path d="M18 15.5 C20 13.9 22 13 24 14 L24 24 Z" fill="#34A853" />
                           </svg>
                         )
                       },
@@ -477,9 +486,9 @@ function AdminRegistration({ onComplete }) {
                         selectedBorder: "#5f259f",
                         icon: (
                           <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
-                            <circle cx="24" cy="24" r="24" fill="#5f259f"/>
-                            <path d="M16 14h10c4.4 0 8 3.6 8 8s-3.6 8-8 8h-4v4l-6-6V14z" fill="white"/>
-                            <circle cx="26" cy="22" r="3" fill="#5f259f"/>
+                            <circle cx="24" cy="24" r="24" fill="#5f259f" />
+                            <path d="M16 14h10c4.4 0 8 3.6 8 8s-3.6 8-8 8h-4v4l-6-6V14z" fill="white" />
+                            <circle cx="26" cy="22" r="3" fill="#5f259f" />
                           </svg>
                         )
                       },
@@ -490,10 +499,10 @@ function AdminRegistration({ onComplete }) {
                         selectedBorder: "#00B9F1",
                         icon: (
                           <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
-                            <circle cx="24" cy="24" r="24" fill="#00B9F1"/>
-                            <rect x="12" y="18" width="10" height="12" rx="2" fill="white"/>
-                            <rect x="26" y="18" width="10" height="5" rx="2" fill="white"/>
-                            <rect x="26" y="25" width="10" height="5" rx="2" fill="white"/>
+                            <circle cx="24" cy="24" r="24" fill="#00B9F1" />
+                            <rect x="12" y="18" width="10" height="12" rx="2" fill="white" />
+                            <rect x="26" y="18" width="10" height="5" rx="2" fill="white" />
+                            <rect x="26" y="25" width="10" height="5" rx="2" fill="white" />
                           </svg>
                         )
                       },
@@ -504,9 +513,9 @@ function AdminRegistration({ onComplete }) {
                         selectedBorder: "#6366f1",
                         icon: (
                           <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
-                            <circle cx="24" cy="24" r="24" fill="#e0e7ff"/>
-                            <circle cx="24" cy="24" r="8" fill="none" stroke="#6366f1" strokeWidth="2.5"/>
-                            <path d="M24 20v4l3 3" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round"/>
+                            <circle cx="24" cy="24" r="24" fill="#e0e7ff" />
+                            <circle cx="24" cy="24" r="8" fill="none" stroke="#6366f1" strokeWidth="2.5" />
+                            <path d="M24 20v4l3 3" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" />
                           </svg>
                         )
                       },
@@ -516,25 +525,25 @@ function AdminRegistration({ onComplete }) {
                         <button key={app.id} type="button"
                           onClick={() => setF("upiApp", app.id)}
                           style={{
-                            flex:1, padding:"12px 6px 10px", borderRadius:12, cursor:"pointer",
+                            flex: 1, padding: "12px 6px 10px", borderRadius: 12, cursor: "pointer",
                             border: active ? `2px solid ${app.selectedBorder}` : "1.5px solid var(--border)",
                             background: active ? app.selectedBg : "white",
-                            transition:"all 0.18s", display:"flex", flexDirection:"column",
-                            alignItems:"center", gap:6, outline:"none",
+                            transition: "all 0.18s", display: "flex", flexDirection: "column",
+                            alignItems: "center", gap: 6, outline: "none",
                             boxShadow: active ? `0 0 0 3px ${app.selectedBorder}22` : "none",
                           }}
                         >
                           {app.icon}
                           <span style={{
-                            fontSize:11, fontFamily:"Plus Jakarta Sans", fontWeight:700,
+                            fontSize: 11, fontFamily: "Plus Jakarta Sans", fontWeight: 700,
                             color: active ? app.selectedBorder : "var(--slate)",
-                            letterSpacing:"0.02em"
+                            letterSpacing: "0.02em"
                           }}>{app.label}</span>
                           {active && (
                             <span style={{
-                              width:6, height:6, borderRadius:"50%",
-                              background: app.selectedBorder, display:"block"
-                            }}/>
+                              width: 6, height: 6, borderRadius: "50%",
+                              background: app.selectedBorder, display: "block"
+                            }} />
                           )}
                         </button>
                       );
@@ -543,9 +552,9 @@ function AdminRegistration({ onComplete }) {
                 </div>
 
                 {/* UPI ID input */}
-                <div className="input-group" style={{ marginBottom:14 }}>
-                  <label>UPI ID <span style={{ color:"var(--rose)", fontSize:12 }}>*required</span></label>
-                  <div style={{ position:"relative" }}>
+                <div className="input-group" style={{ marginBottom: 14 }}>
+                  <label>UPI ID <span style={{ color: "var(--rose)", fontSize: 12 }}>*required</span></label>
+                  <div style={{ position: "relative" }}>
                     <input
                       className="input-field"
                       placeholder="yourname@okicici / 9876543210@upi"
@@ -554,11 +563,11 @@ function AdminRegistration({ onComplete }) {
                       style={{ paddingRight: form.upiId ? 44 : 16 }}
                     />
                     {form.upiId && (
-                      <div style={{ position:"absolute", right:14, top:"50%", transform:"translateY(-50%)", color:"var(--sage)", fontSize:18 }}>✓</div>
+                      <div style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--sage)", fontSize: 18 }}>✓</div>
                     )}
                   </div>
                   {form.upiId && (
-                    <div style={{ fontSize:12, color:"var(--teal)", marginTop:4, display:"flex", alignItems:"center", gap:5 }}>
+                    <div style={{ fontSize: 12, color: "var(--teal)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
                       <span>🔗</span> Roommates will pay to: <strong>{form.upiId}</strong>
                     </div>
                   )}
@@ -566,12 +575,12 @@ function AdminRegistration({ onComplete }) {
 
                 {/* QR Code upload */}
                 <div className="input-group">
-                  <label>UPI QR Code Image <span style={{ color:"var(--muted)", fontSize:12, fontWeight:400, fontFamily:"Inter" }}>— optional but recommended</span></label>
+                  <label>UPI QR Code Image <span style={{ color: "var(--muted)", fontSize: 12, fontWeight: 400, fontFamily: "Inter" }}>— optional but recommended</span></label>
                   <input
                     ref={qrRef}
                     type="file"
                     accept="image/*"
-                    style={{ display:"none" }}
+                    style={{ display: "none" }}
                     onChange={e => {
                       const file = e.target.files[0];
                       if (!file) return;
@@ -584,20 +593,20 @@ function AdminRegistration({ onComplete }) {
                   {form.qrPreview ? (
                     <div
                       onClick={() => qrRef.current.click()}
-                      style={{ display:"flex", alignItems:"center", gap:16, background:"white", border:"2px solid var(--teal)", borderRadius:12, padding:"14px 16px", cursor:"pointer" }}
+                      style={{ display: "flex", alignItems: "center", gap: 16, background: "white", border: "2px solid var(--teal)", borderRadius: 12, padding: "14px 16px", cursor: "pointer" }}
                     >
                       <img src={form.qrPreview} alt="UPI QR"
-                        style={{ width:72, height:72, objectFit:"cover", borderRadius:8, border:"1px solid var(--border)" }} />
+                        style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }} />
                       <div>
-                        <div style={{ fontFamily:"Plus Jakarta Sans", fontWeight:700, fontSize:14, color:"var(--teal)", marginBottom:4 }}>✅ QR Code uploaded</div>
-                        <div style={{ fontSize:12, color:"var(--muted)" }}>{form.qrFile?.name}</div>
-                        <div style={{ fontSize:12, color:"var(--muted)", marginTop:2 }}>Click to replace</div>
+                        <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 14, color: "var(--teal)", marginBottom: 4 }}>✅ QR Code uploaded</div>
+                        <div style={{ fontSize: 12, color: "var(--muted)" }}>{form.qrFile?.name}</div>
+                        <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Click to replace</div>
                       </div>
                     </div>
                   ) : (
                     <div
                       className="proof-upload"
-                      style={{ padding:"20px 16px" }}
+                      style={{ padding: "20px 16px" }}
                       onClick={() => qrRef.current.click()}
                       onDragOver={e => e.preventDefault()}
                       onDrop={e => {
@@ -610,9 +619,9 @@ function AdminRegistration({ onComplete }) {
                         reader.readAsDataURL(file);
                       }}
                     >
-                      <div style={{ fontSize:28, marginBottom:6 }}>📲</div>
-                      <div style={{ fontFamily:"Plus Jakarta Sans", fontWeight:600, fontSize:14 }}>Upload your UPI QR Code</div>
-                      <div style={{ fontSize:12, color:"var(--muted)", marginTop:4 }}>Screenshot from Google Pay / PhonePe · JPG, PNG</div>
+                      <div style={{ fontSize: 28, marginBottom: 6 }}>📲</div>
+                      <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 600, fontSize: 14 }}>Upload your UPI QR Code</div>
+                      <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>Screenshot from Google Pay / PhonePe · JPG, PNG</div>
                     </div>
                   )}
                 </div>
@@ -620,19 +629,19 @@ function AdminRegistration({ onComplete }) {
 
               {/* Agreement upload */}
               <div className="input-group">
-                <label>Agreement File <span style={{ color:"var(--muted)", fontSize:12, fontWeight:400, fontFamily:"Inter" }}>— PDF, optional</span></label>
+                <label>Agreement File <span style={{ color: "var(--muted)", fontSize: 12, fontWeight: 400, fontFamily: "Inter" }}>— PDF, optional</span></label>
                 <input ref={agreementRef} type="file" accept=".pdf,application/pdf" style={{ display: "none" }}
                   onChange={e => { if (e.target.files[0]) setF("agreement", e.target.files[0]); }} />
                 <div className="proof-upload"
                   onClick={() => agreementRef.current.click()}
                   onDragOver={e => e.preventDefault()}
                   onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.type === "application/pdf") setF("agreement", f); }}
-                  style={form.agreement ? { borderColor: "var(--teal)", background: "#dbeafe", padding:"20px 16px" } : { padding:"20px 16px" }}
+                  style={form.agreement ? { borderColor: "var(--teal)", background: "#dbeafe", padding: "20px 16px" } : { padding: "20px 16px" }}
                 >
                   {form.agreement ? (
                     <><div style={{ fontSize: 28, marginBottom: 6 }}>✅</div>
                       <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 14, color: "var(--teal)" }}>{form.agreement.name}</div>
-                      <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{(form.agreement.size/1024).toFixed(1)} KB · Click to replace</div></>
+                      <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{(form.agreement.size / 1024).toFixed(1)} KB · Click to replace</div></>
                   ) : (
                     <><div style={{ fontSize: 28, marginBottom: 6 }}>📄</div>
                       <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 600, fontSize: 14 }}>Upload Agreement PDF</div>
@@ -699,7 +708,7 @@ function AdminRegistration({ onComplete }) {
               {sending
                 ? "Hold on — sending personalised invite emails to your roommates…"
                 : allSent
-                  ? `${roommates.filter(r=>r.email).length} invitation${roommates.filter(r=>r.email).length!==1?"s":""} delivered! Each roommate will receive a unique link to accept and join ${form.houseName}.`
+                  ? `${roommates.filter(r => r.email).length} invitation${roommates.filter(r => r.email).length !== 1 ? "s" : ""} delivered! Each roommate will receive a unique link to accept and join ${form.houseName}.`
                   : ""}
             </p>
 
@@ -737,7 +746,7 @@ function AdminRegistration({ onComplete }) {
                   </div>
                 </div>
                 <div style={{ marginTop: 12, fontSize: 12, color: "var(--muted)" }}>
-                  Or copy this link: https://coliving.app/invite/{form.houseName?.toLowerCase().replace(/\s+/g,"-") || "house"}/[token]
+                  Or copy this link: https://coliving.app/invite/{form.houseName?.toLowerCase().replace(/\s+/g, "-") || "house"}/[token]
                 </div>
               </div>
             </div>
@@ -787,7 +796,7 @@ function AdminRegistration({ onComplete }) {
                     Invitation requests sent!
                   </div>
                   <div style={{ fontSize: 14, color: "#1e3a5f", lineHeight: 1.65 }}>
-                    All <strong>{roommates.filter(r => r.email).length} roommate{roommates.filter(r=>r.email).length!==1?"s":""}</strong> have been emailed their personal invite link for <strong>{form.houseName}</strong>.
+                    All <strong>{roommates.filter(r => r.email).length} roommate{roommates.filter(r => r.email).length !== 1 ? "s" : ""}</strong> have been emailed their personal invite link for <strong>{form.houseName}</strong>.
                     They can now click the link to create an account, review the agreement, and complete payment.
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
@@ -834,7 +843,7 @@ function AdminRegistration({ onComplete }) {
           >
             {step === 1 && "Continue →"}
             {step === 2 && "Continue →"}
-            {step === 3 && `Send ${roommates.filter(r=>r.name&&r.email).length} Invite${roommates.filter(r=>r.name&&r.email).length!==1?"s":""} →`}
+            {step === 3 && `Send ${roommates.filter(r => r.name && r.email).length} Invite${roommates.filter(r => r.name && r.email).length !== 1 ? "s" : ""} →`}
             {step === 4 && (sending ? "Sending…" : "🏠 Go to Dashboard")}
           </button>
         </div>
@@ -948,7 +957,8 @@ function AgreementModal({ house, roommate, onClose, onAgree }) {
 // ─── ROOMMATE INVITE PAGE ─────────────────────────────────────────────────────
 function RoommateInvite({ onAccept, onReject }) {
   const [step, setStep] = useState("view"); // view | signup | payment | done
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
+  const [touched, setTouched] = useState({});
   const [proofFile, setProofFile] = useState(null);
   const [proofPreview, setProofPreview] = useState(null);
   const [agreed, setAgreed] = useState(false);
@@ -1081,13 +1091,21 @@ function RoommateInvite({ onAccept, onReject }) {
         <p className="form-subtitle">Join {house.name} as a roommate</p>
         <div className="form-grid">
           {(() => {
-            const isEmailValid = (value) => /\S+@\S+\.\S+/.test(value);
+            const isEmailValid = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+            const isPhoneValid = (value) => /^\+?[\d\s-]{10,}$/.test(value);
             const isPasswordValid = (value) => value.length >= 8;
+
             const nameError = !form.name && touched?.name ? "Name is required" : "";
             const emailError = touched?.email && !isEmailValid(form.email) ? "Enter a valid email address" : "";
+            const phoneError = touched?.phone && !isPhoneValid(form.phone) ? "Enter a valid phone number (min 10 digits)" : "";
             const passwordError = touched?.password && !isPasswordValid(form.password) ? "Password must be at least 8 characters" : "";
 
-            return [["Full Name", "name", "text", "Your full name"], ["Email", "email", "email", "you@email.com"], ["Password", "password", "password", "Min. 8 characters"]].map(
+            return [
+              ["Full Name", "name", "text", "Your full name"],
+              ["Email", "email", "email", "you@email.com"],
+              ["Phone", "phone", "text", "+91 98765 43210"],
+              ["Password", "password", "password", "Min. 8 characters"]
+            ].map(
               ([label, key, type, ph]) => (
                 <div key={key} className="input-group">
                   <label>{label}</label>
@@ -1097,10 +1115,11 @@ function RoommateInvite({ onAccept, onReject }) {
                     placeholder={ph}
                     value={form[key]}
                     onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-                    onBlur={() => setTouched?.(t => ({ ...t, [key]: true }))}
+                    onBlur={() => setTouched(t => ({ ...t, [key]: true }))}
                   />
                   {key === "name" && nameError && <span style={{ fontSize: 11, color: "var(--rose)" }}>{nameError}</span>}
                   {key === "email" && emailError && <span style={{ fontSize: 11, color: "var(--rose)" }}>{emailError}</span>}
+                  {key === "phone" && phoneError && <span style={{ fontSize: 11, color: "var(--rose)" }}>{phoneError}</span>}
                   {key === "password" && passwordError && <span style={{ fontSize: 11, color: "var(--rose)" }}>{passwordError}</span>}
                 </div>
               ),
@@ -1114,7 +1133,8 @@ function RoommateInvite({ onAccept, onReject }) {
             style={{ flex: 1, justifyContent: "center" }}
             disabled={
               !form.name ||
-              !/\S+@\S+\.\S+/.test(form.email) ||
+              !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) ||
+              !/^\+?[\d\s-]{10,}$/.test(form.phone) ||
               !form.password ||
               form.password.length < 8
             }
@@ -1376,7 +1396,7 @@ function AdminOverview({ data, onNav, notifications, onDismissNotif }) {
         <div className="card fade-up-2">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
             <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700 }}>Rent Collection</h3>
-            <span style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, color: "var(--amber)" }}>{Math.round(paidRent/totalRent*100)}%</span>
+            <span style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, color: "var(--amber)" }}>{Math.round(paidRent / totalRent * 100)}%</span>
           </div>
           {data.roommates.map(r => (
             <div key={r.id} style={{ marginBottom: 16 }}>
@@ -1461,12 +1481,12 @@ function RoommatesPage({ data, onToast }) {
             <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 800, fontSize: 24, marginBottom: 6 }}>Add Roommate</h3>
             <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 24 }}>They'll receive an invite link via email</p>
             <div className="form-grid" style={{ gap: 16 }}>
-              {[["Full Name","name","text","Arjun Mehta"],["Email","email","email","arjun@email.com"],["Phone","phone","tel","+91 99001 12233"]].map(([l,k,t,ph]) => (
-                <div key={k} className="input-group"><label>{l}</label><input className="input-field" type={t} placeholder={ph} value={form[k]} onChange={e=>set(k,e.target.value)} /></div>
+              {[["Full Name", "name", "text", "Arjun Mehta"], ["Email", "email", "email", "arjun@email.com"], ["Phone", "phone", "tel", "+91 99001 12233"]].map(([l, k, t, ph]) => (
+                <div key={k} className="input-group"><label>{l}</label><input className="input-field" type={t} placeholder={ph} value={form[k]} onChange={e => set(k, e.target.value)} /></div>
               ))}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                {[["Monthly Rent (₹)","rentShare","8000"],["Security Deposit (₹)","deposit","16000"]].map(([l,k,ph]) => (
-                  <div key={k} className="input-group"><label>{l}</label><input className="input-field" type="number" placeholder={ph} value={form[k]} onChange={e=>set(k,e.target.value)} /></div>
+                {[["Monthly Rent (₹)", "rentShare", "8000"], ["Security Deposit (₹)", "deposit", "16000"]].map(([l, k, ph]) => (
+                  <div key={k} className="input-group"><label>{l}</label><input className="input-field" type="number" placeholder={ph} value={form[k]} onChange={e => set(k, e.target.value)} /></div>
                 ))}
               </div>
             </div>
@@ -1554,8 +1574,8 @@ function PaymentsPage({ data, onToast, notifications, onDismissNotif }) {
       )}
 
       <div className="tabs fade-up-1" style={{ marginBottom: 24, display: "inline-flex" }}>
-        {[["all","All"],["pending_review","Pending Review"],["approved","Approved"],["unpaid","Unpaid"]].map(([v,l]) => (
-          <button key={v} className={`tab ${tab===v?"active":""}`} onClick={() => setTab(v)}>{l}</button>
+        {[["all", "All"], ["pending_review", "Pending Review"], ["approved", "Approved"], ["unpaid", "Unpaid"]].map(([v, l]) => (
+          <button key={v} className={`tab ${tab === v ? "active" : ""}`} onClick={() => setTab(v)}>{l}</button>
         ))}
       </div>
 
@@ -1685,11 +1705,11 @@ function ExpensesPage({ data, onToast }) {
         e.id !== expenseId
           ? e
           : {
-              ...e,
-              split: e.split.map(s =>
-                s.userId === userId ? { ...s, status: "Paid" } : s,
-              ),
-            },
+            ...e,
+            split: e.split.map(s =>
+              s.userId === userId ? { ...s, status: "Paid" } : s,
+            ),
+          },
       ),
     );
   };
@@ -1820,7 +1840,7 @@ function ExpensesPage({ data, onToast }) {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{r.name.split(" ")[0]}</div>
                   <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${Math.random()*40+40}%`, background: r.color || "var(--teal)" }} />
+                    <div className="progress-fill" style={{ width: `${Math.random() * 40 + 40}%`, background: r.color || "var(--teal)" }} />
                   </div>
                 </div>
                 <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 15, minWidth: 60, textAlign: "right" }}>
@@ -2021,8 +2041,8 @@ function VibeCheckPage({ data, isAdmin, onToast }) {
         <div className="card fade-up-1" style={{ marginBottom: 24 }}>
           <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 16 }}>Set Your Status</h3>
           <div className="vibe-grid">
-            {[["free","😊","Free to chat","I'm around!"], ["busy","📚","Busy","Working or studying"], ["dnd","🔕","Do Not Disturb","Please don't disturb"]].map(([v,e,name,desc]) => (
-              <div key={v} className={`vibe-card ${myVibe===v?"selected":""}`} onClick={() => { setMyVibe(v); onToast(`Status set to ${name}!`); }}>
+            {[["free", "😊", "Free to chat", "I'm around!"], ["busy", "📚", "Busy", "Working or studying"], ["dnd", "🔕", "Do Not Disturb", "Please don't disturb"]].map(([v, e, name, desc]) => (
+              <div key={v} className={`vibe-card ${myVibe === v ? "selected" : ""}`} onClick={() => { setMyVibe(v); onToast(`Status set to ${name}!`); }}>
                 <div className="vibe-emoji">{e}</div>
                 <div className="vibe-name">{name}</div>
                 <div className="vibe-desc">{desc}</div>
