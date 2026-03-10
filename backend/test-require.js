@@ -1,0 +1,10 @@
+console.log("1. Starting");
+require("dotenv").config();
+console.log("2. Dotenv loaded");
+const mongoose = require("mongoose");
+console.log("3. Mongoose loaded");
+const RequiredItem = require("./models/RequiredItem");
+console.log("4. RequiredItem loaded");
+const PurchasedItem = require("./models/PurchasedItem");
+console.log("5. PurchasedItem loaded");
+console.log("Done");

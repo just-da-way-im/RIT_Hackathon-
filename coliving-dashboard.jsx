@@ -220,9 +220,9 @@ const INITIAL_DATA = {
     createdAt: "2024-01-15",
   },
   roommates: [
-    { id: "r1", name: "Arjun Mehta", email: "arjun@email.com", phone: "+91 99001 12233", rentShare: 8000, deposit: 16000, status: "active", paymentStatus: "paid", inviteAccepted: true, vibe: "free", color: "#1d4ed8", avatarBg: "#dbeafe" },
-    { id: "r2", name: "Sneha Patel", email: "sneha@email.com", phone: "+91 98712 34567", rentShare: 8500, deposit: 17000, status: "active", paymentStatus: "pending", inviteAccepted: true, vibe: "busy", color: "#dc2626", avatarBg: "#fee2e2" },
-    { id: "r3", name: "Rohan Das", email: "rohan@email.com", phone: "+91 87654 32109", rentShare: 8500, deposit: 17000, status: "invited", paymentStatus: "unpaid", inviteAccepted: false, vibe: "dnd", color: "#2563eb", avatarBg: "#eff6ff" },
+    { id: "r1", name: "Arjun Mehta", email: "arjun@email.com", phone: "+91 99001 12233", address: "12, Park Street, Kolkata - 700016", rentShare: 8000, deposit: 16000, status: "active", paymentStatus: "paid", inviteAccepted: true, vibe: "free", color: "#1d4ed8", avatarBg: "#dbeafe" },
+    { id: "r2", name: "Sneha Patel", email: "sneha@email.com", phone: "+91 98712 34567", address: "89, Marine Drive, Mumbai - 400020", rentShare: 8500, deposit: 17000, status: "active", paymentStatus: "pending", inviteAccepted: true, vibe: "busy", color: "#dc2626", avatarBg: "#fee2e2" },
+    { id: "r3", name: "Rohan Das", email: "rohan@email.com", phone: "+91 87654 32109", address: "404, Cyber Hub, Gurugram - 122022", rentShare: 8500, deposit: 17000, status: "invited", paymentStatus: "unpaid", inviteAccepted: false, vibe: "dnd", color: "#2563eb", avatarBg: "#eff6ff" },
   ],
   expenses: [
     { id: "e1", category: "Electricity", amount: 2400, paidBy: "Priya Sharma", date: "2024-02-10", split: true, icon: "⚡", color: "#eff6ff" },
@@ -276,8 +276,58 @@ function Toast({ msg, onClose }) {
   return <div className="toast">✓ {msg}</div>;
 }
 
+// ─── ROOMMATE LOGIN PAGE ──────────────────────────────────────────────────────
+function RoommateLogin({ onLogin, onBack }) {
+  const [form, setForm] = useState({ email: "", password: "" });
+
+  return (
+    <div className="form-page" style={{ alignItems: "flex-start", paddingTop: 80 }}>
+      <div className="form-card fade-up">
+        <div className="form-logo">Co-Living <span>Harmony</span></div>
+        <h2 className="form-title">Welcome Back</h2>
+        <p className="form-subtitle">Log in to your roommate account</p>
+
+        <div className="form-grid">
+          <div className="input-group">
+            <label>Email</label>
+            <input
+              className="input-field"
+              type="email"
+              placeholder="you@email.com"
+              value={form.email}
+              onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+            />
+          </div>
+          <div className="input-group">
+            <label>Password</label>
+            <input
+              className="input-field"
+              type="password"
+              placeholder="Your password"
+              value={form.password}
+              onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 12, marginTop: 32 }}>
+          <button className="btn btn-outline" onClick={onBack}>← Back</button>
+          <button
+            className="btn btn-amber"
+            style={{ flex: 1, justifyContent: "center" }}
+            disabled={!form.email || !form.password}
+            onClick={() => onLogin(form)}
+          >
+            Log In →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── LANDING PAGE ─────────────────────────────────────────────────────────────
-function Landing({ onGoAdmin, onGoRoommate, onGoInvite }) {
+function Landing({ onGoAdmin, onGoRoommate, onGoInvite, onLogin }) {
   return (
     <div style={{ minHeight: "100vh", background: "var(--ink)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 40, position: "relative", overflow: "hidden" }}>
       {/* bg decoration */}
@@ -297,11 +347,11 @@ function Landing({ onGoAdmin, onGoRoommate, onGoInvite }) {
           Rent tracking, chore rotation, expense splitting, and roommate vibes — all in one dashboard built for co-living harmony.
         </p>
 
-        <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap", marginTop: 24 }}>
           <button className="btn btn-amber btn-lg" onClick={onGoAdmin}>
             🏡 Admin — Create a House
           </button>
-          <button className="btn btn-lg" style={{ background: "rgba(255,255,255,0.1)", color: "white", border: "1.5px solid rgba(255,255,255,0.2)" }} onClick={onGoRoommate}>
+          <button className="btn btn-lg" style={{ background: "rgba(255,255,255,0.1)", color: "white", border: "1.5px solid rgba(255,255,255,0.2)" }} onClick={onLogin}>
             🙋 I'm a Roommate
           </button>
         </div>
@@ -344,7 +394,7 @@ function AdminRegistration({ onComplete }) {
   const stepLabels = ["Your Info", "House Setup", "Add Roommates", "Send Invites"];
   const canNext1 = form.name && form.email && isEmailValid(form.email) && form.phone && isPhoneValid(form.phone) && form.address && isAddressValid(form.address);
   const canNext2 = form.houseName && form.rent && form.upiId;
-  const canNext3 = roommates.length > 0 && roommates.every(r => r.name && r.email && r.rentShare);
+  const canNext3 = roommates.length > 0 && roommates.every(r => r.name && isEmailValid(r.email) && r.rentShare && r.rentShare > 0 && (!r.phone || isPhoneValid(r.phone)));
 
   const [allSent, setAllSent] = useState(false);
 
@@ -440,11 +490,13 @@ function AdminRegistration({ onComplete }) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div className="input-group">
                   <label>House Name</label>
-                  <input className="input-field" placeholder="e.g. Sunrise Villa" value={form.houseName} onChange={e => setF("houseName", e.target.value)} />
+                  <input className="input-field" placeholder="e.g. Sunrise Villa" value={form.houseName} onChange={e => setF("houseName", e.target.value)} onBlur={() => setT("houseName")} />
+                  {touched.houseName && !form.houseName && <span style={{ fontSize: 11, color: "var(--rose)" }}>House Name is required</span>}
                 </div>
                 <div className="input-group">
                   <label>Monthly Rent (₹)</label>
-                  <input className="input-field" type="number" placeholder="25000" value={form.rent} onChange={e => setF("rent", e.target.value)} />
+                  <input className="input-field" type="number" placeholder="25000" value={form.rent} onChange={e => setF("rent", e.target.value)} onBlur={() => setT("rent")} />
+                  {touched.rent && (!form.rent || Number(form.rent) <= 0) && <span style={{ fontSize: 11, color: "var(--rose)" }}>Please enter a valid rent amount</span>}
                 </div>
               </div>
 
@@ -560,12 +612,14 @@ function AdminRegistration({ onComplete }) {
                       placeholder="yourname@okicici / 9876543210@upi"
                       value={form.upiId}
                       onChange={e => setF("upiId", e.target.value)}
+                      onBlur={() => setT("upiId")}
                       style={{ paddingRight: form.upiId ? 44 : 16 }}
                     />
                     {form.upiId && (
                       <div style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--sage)", fontSize: 18 }}>✓</div>
                     )}
                   </div>
+                  {touched.upiId && !form.upiId && <span style={{ fontSize: 11, color: "var(--rose)", marginTop: 4 }}>UPI ID is required</span>}
                   {form.upiId && (
                     <div style={{ fontSize: 12, color: "var(--teal)", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
                       <span>🔗</span> Roommates will pay to: <strong>{form.upiId}</strong>
@@ -672,19 +726,24 @@ function AdminRegistration({ onComplete }) {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                     <div className="input-group" style={{ gridColumn: "1 / -1" }}>
                       <label>Full Name *</label>
-                      <input className="input-field" placeholder="Arjun Mehta" value={r.name} onChange={e => setRM(r.id, "name", e.target.value)} />
+                      <input className="input-field" placeholder="Arjun Mehta" value={r.name} onChange={e => setRM(r.id, "name", e.target.value)} onBlur={() => setT(`rm_${r.id}_name`)} />
+                      {touched[`rm_${r.id}_name`] && !r.name && <span style={{ fontSize: 11, color: "var(--rose)" }}>Name is required</span>}
                     </div>
                     <div className="input-group">
                       <label>Email *</label>
-                      <input className="input-field" type="email" placeholder="arjun@email.com" value={r.email} onChange={e => setRM(r.id, "email", e.target.value)} />
+                      <input className="input-field" type="email" placeholder="arjun@email.com" value={r.email} onChange={e => setRM(r.id, "email", e.target.value)} onBlur={() => setT(`rm_${r.id}_email`)} />
+                      {touched[`rm_${r.id}_email`] && r.email && !isEmailValid(r.email) && <span style={{ fontSize: 11, color: "var(--rose)" }}>Valid email required</span>}
+                      {touched[`rm_${r.id}_email`] && !r.email && <span style={{ fontSize: 11, color: "var(--rose)" }}>Email is required</span>}
                     </div>
                     <div className="input-group">
                       <label>Phone</label>
-                      <input className="input-field" placeholder="+91 99001 12233" value={r.phone} onChange={e => setRM(r.id, "phone", e.target.value)} />
+                      <input className="input-field" placeholder="+91 99001 12233" value={r.phone} onChange={e => setRM(r.id, "phone", e.target.value)} onBlur={() => setT(`rm_${r.id}_phone`)} />
+                      {touched[`rm_${r.id}_phone`] && r.phone && !isPhoneValid(r.phone) && <span style={{ fontSize: 11, color: "var(--rose)" }}>Min 10 digits required</span>}
                     </div>
                     <div className="input-group">
                       <label>Rent Share (₹) *</label>
-                      <input className="input-field" type="number" placeholder="8000" value={r.rentShare} onChange={e => setRM(r.id, "rentShare", e.target.value)} />
+                      <input className="input-field" type="number" placeholder="8000" value={r.rentShare} onChange={e => setRM(r.id, "rentShare", e.target.value)} onBlur={() => setT(`rm_${r.id}_rent`)} />
+                      {touched[`rm_${r.id}_rent`] && (!r.rentShare || Number(r.rentShare) <= 0) && <span style={{ fontSize: 11, color: "var(--rose)" }}>Valid rent is required</span>}
                     </div>
                     <div className="input-group">
                       <label>Security Deposit (₹)</label>
@@ -1256,6 +1315,7 @@ function Sidebar({ active, onNav, isAdmin, notifCount }) {
     { id: "expenses", icon: "📋", label: "Expenses" },
     { id: "chores", icon: "🧹", label: "Chores" },
     { id: "vibes", icon: "😊", label: "Vibe Check" },
+    { id: "roommate-details", icon: "🪪", label: "Roommate Details" },
   ];
   const roommateNav = [
     { id: "my-overview", icon: "🏠", label: "My Home" },
@@ -1263,6 +1323,7 @@ function Sidebar({ active, onNav, isAdmin, notifCount }) {
     { id: "expenses", icon: "📋", label: "Expenses" },
     { id: "chores", icon: "🧹", label: "Chores" },
     { id: "vibes", icon: "😊", label: "Vibe Check" },
+    { id: "roommate-details", icon: "🪪", label: "Roommate Details" },
   ];
   const nav = isAdmin ? adminNav : roommateNav;
 
@@ -1616,8 +1677,9 @@ function PaymentsPage({ data, onToast, notifications, onDismissNotif }) {
 function ExpensesPage({ data, onToast }) {
   const [showAddRequired, setShowAddRequired] = useState(false);
   const [showAddPurchased, setShowAddPurchased] = useState(false);
+  const [purchasingRequiredId, setPurchasingRequiredId] = useState(null);
 
-  const [requiredForm, setRequiredForm] = useState({ name: "", quantity: "" });
+  const [requiredForm, setRequiredForm] = useState({ name: "", quantity: "", estimatedPrice: "" });
   const [purchasedForm, setPurchasedForm] = useState({
     name: "",
     quantity: "",
@@ -1627,8 +1689,24 @@ function ExpensesPage({ data, onToast }) {
     billPreview: null,
   });
 
-  const [requiredItems, setRequiredItems] = useState(data.requiredItems || []);
-  const [purchasedItems, setPurchasedItems] = useState(data.householdPurchases || []);
+  const [requiredItems, setRequiredItems] = useState([]);
+  const [purchasedItems, setPurchasedItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch initial data from backend
+  useEffect(() => {
+    fetch("http://localhost:5000/api/data")
+      .then(res => res.json())
+      .then(dbData => {
+        setRequiredItems(dbData.requiredItems || []);
+        setPurchasedItems(dbData.purchasedItems || []);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
 
   const roommatesWithAdmin = [...data.roommates, { id: "admin", name: "Priya Sharma (You)", color: "var(--amber)", avatarBg: "var(--amber-pale)" }];
 
@@ -1644,23 +1722,48 @@ function ExpensesPage({ data, onToast }) {
     r.readAsDataURL(file);
   };
 
-  const addRequiredItem = () => {
+  const addRequiredItem = async () => {
     if (!requiredForm.name || !requiredForm.quantity) return;
-    setRequiredItems(prev => [
-      ...prev,
-      {
-        id: Date.now(),
-        name: requiredForm.name,
-        quantity: requiredForm.quantity,
-        addedBy: "You",
-      },
-    ]);
-    setRequiredForm({ name: "", quantity: "" });
-    setShowAddRequired(false);
-    onToast?.("Required item added to the shared list.");
+
+    const payload = {
+      name: requiredForm.name,
+      quantity: requiredForm.quantity,
+      estimatedPrice: Number(requiredForm.estimatedPrice) || 0,
+      addedBy: "You"
+    };
+
+    try {
+      const res = await fetch("http://localhost:5000/api/required-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const savedItem = await res.json();
+      setRequiredItems(prev => [savedItem, ...prev]);
+
+      setRequiredForm({ name: "", quantity: "", estimatedPrice: "" });
+      setShowAddRequired(false);
+      onToast?.("Required item added to the shared list.");
+    } catch (e) {
+      console.error(e);
+      onToast?.("Error adding required item.");
+    }
   };
 
-  const addPurchasedItem = () => {
+  const handlePurchaseRequired = (item) => {
+    setPurchasedForm({
+      name: item.name,
+      quantity: item.quantity,
+      totalPrice: item.estimatedPrice ? String(item.estimatedPrice) : "",
+      purchasedBy: "Priya", // Pre-fill with current user's first name
+      billFile: null,
+      billPreview: null,
+    });
+    setPurchasingRequiredId(item.id);
+    setShowAddPurchased(true);
+  };
+
+  const addPurchasedItem = async () => {
     const { name, quantity, totalPrice, purchasedBy } = purchasedForm;
     if (!name || !quantity || !totalPrice || !purchasedBy) return;
 
@@ -1675,28 +1778,44 @@ function ExpensesPage({ data, onToast }) {
       amount: share,
     }));
 
-    const item = {
-      id: Date.now(),
+    const payload = {
       name,
       quantity,
       totalPrice: totalNum,
       purchasedBy,
       billPreview: purchasedForm.billPreview,
-      split,
-      createdAt: new Date().toLocaleString("en-IN"),
+      split
     };
 
-    setPurchasedItems(prev => [item, ...prev]);
-    setPurchasedForm({
-      name: "",
-      quantity: "",
-      totalPrice: "",
-      purchasedBy: "",
-      billFile: null,
-      billPreview: null,
-    });
-    setShowAddPurchased(false);
-    onToast?.(`Expense added for ${name}. Everyone has been notified of their share.`);
+    try {
+      const res = await fetch("http://localhost:5000/api/purchased-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const savedItem = await res.json();
+      setPurchasedItems(prev => [savedItem, ...prev]);
+
+      if (purchasingRequiredId) {
+        await fetch(`http://localhost:5000/api/required-items/${purchasingRequiredId}`, { method: "DELETE" });
+        setRequiredItems(prev => prev.filter(r => r._id !== purchasingRequiredId));
+        setPurchasingRequiredId(null);
+      }
+
+      setPurchasedForm({
+        name: "",
+        quantity: "",
+        totalPrice: "",
+        purchasedBy: "",
+        billFile: null,
+        billPreview: null,
+      });
+      setShowAddPurchased(false);
+      onToast?.(`Expense added for ${name}. Everyone has been notified of their share.`);
+    } catch (e) {
+      console.error(e);
+      onToast?.("Error adding expense.");
+    }
   };
 
   const markSharePaid = (expenseId, userId) => {
@@ -1742,71 +1861,86 @@ function ExpensesPage({ data, onToast }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1.1fr", gap: 24 }}>
         {/* Left: Required & purchased lists */}
-        <div className="card fade-up-2">
-          <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 16 }}>Required Items</h3>
-          {requiredItems.length === 0 && (
-            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>No required items yet. Add what the house needs.</p>
-          )}
-          {requiredItems.map(item => (
-            <div key={item.id} className="expense-row">
-              <div className="expense-icon" style={{ background: "var(--cream)" }}>📝</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 500, fontSize: 14 }}>{item.name}</div>
-                <div style={{ fontSize: 12, color: "var(--muted)" }}>Qty: {item.quantity} · Added by {item.addedBy}</div>
-              </div>
-            </div>
-          ))}
-
-          <button
-            className="btn btn-sm btn-outline"
-            style={{ marginTop: 12 }}
-            onClick={() => setShowAddRequired(true)}
-          >
-            + Add required item
-          </button>
-
-          <div style={{ height: 1, background: "var(--border)", margin: "18px 0" }} />
-
-          <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 16 }}>Purchased Items</h3>
-          {purchasedItems.length === 0 && (
-            <p style={{ fontSize: 13, color: "var(--muted)" }}>No purchases recorded yet. Add a purchased item to split the cost.</p>
-          )}
-          {purchasedItems.map(exp => (
-            <div key={exp.id} className="expense-row">
-              <div className="expense-icon" style={{ background: "#dcfce7" }}>🧾</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 500, fontSize: 14 }}>{exp.name}</div>
-                <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                  Qty: {exp.quantity} · Bought by {exp.purchasedBy} · {exp.createdAt}
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* Required Items History */}
+          <div className="card fade-up-2" style={{ display: "flex", flexDirection: "column", maxHeight: 420 }}>
+            <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 16 }}>Required Items</h3>
+            <div style={{ overflowY: "auto", flex: 1, paddingRight: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+              {requiredItems.length === 0 && (
+                <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>No required items yet. Add what the house needs.</p>
+              )}
+              {requiredItems.map(item => (
+                <div key={item._id} className="expense-row">
+                  <div className="expense-icon" style={{ background: "var(--cream)" }}>📝</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, fontSize: 14 }}>
+                      {item.name}
+                      {item.estimatedPrice ? <span style={{ fontSize: 12, color: "var(--amber)", marginLeft: 6 }}>Est: {currency(item.estimatedPrice)}</span> : null}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                      Qty: {item.quantity} · Added by {item.addedBy} {item.createdAt ? `· ${new Date(item.createdAt).toLocaleDateString("en-IN")}` : ""}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <button className="btn btn-sm btn-amber" onClick={() => handlePurchaseRequired({ ...item, id: item._id })}>Mark Purchased</button>
+                  </div>
                 </div>
-                <div style={{ fontSize: 11, color: "var(--teal)", marginTop: 4 }}>
-                  Each share: {exp.split?.[0] ? currency(exp.split[0].amount) : "-"}
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 16 }}>{currency(exp.totalPrice)}</div>
-                <button
-                  className="btn btn-sm btn-outline"
-                  style={{ marginTop: 8 }}
-                  onClick={() => {
-                    const details = exp.split.map(s => `${s.name.split(" ")[0]} – ${s.status} ${s.status === "Pending" ? `(${currency(s.amount)})` : ""}`).join("\n");
-                    alert(
-                      `Expense details:\n\nItem: ${exp.name}\nQuantity: ${exp.quantity}\nTotal: ${currency(exp.totalPrice)}\nPurchased by: ${exp.purchasedBy}\n\nStatus:\n${details}`,
-                    );
-                  }}
-                >
-                  View details
-                </button>
-              </div>
+              ))}
             </div>
-          ))}
-          <button
-            className="btn btn-sm btn-outline"
-            style={{ marginTop: 12 }}
-            onClick={() => setShowAddPurchased(true)}
-          >
-            + Add purchased item
-          </button>
+            <button
+              className="btn btn-sm btn-outline"
+              style={{ marginTop: 16 }}
+              onClick={() => setShowAddRequired(true)}
+            >
+              + Add required item
+            </button>
+          </div>
+
+          {/* Purchased Items History */}
+          <div className="card fade-up-2" style={{ display: "flex", flexDirection: "column", maxHeight: 520 }}>
+            <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 16 }}>Purchased Items</h3>
+            <div style={{ overflowY: "auto", flex: 1, paddingRight: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+              {purchasedItems.length === 0 && (
+                <p style={{ fontSize: 13, color: "var(--muted)" }}>No purchases recorded yet. Add a purchased item to split the cost.</p>
+              )}
+              {purchasedItems.map(exp => (
+                <div key={exp._id} className="expense-row">
+                  <div className="expense-icon" style={{ background: "#dcfce7" }}>🧾</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, fontSize: 14 }}>{exp.name}</div>
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                      Qty: {exp.quantity} · Bought by {exp.purchasedBy} · {exp.createdAt ? new Date(exp.createdAt).toLocaleDateString("en-IN") : ""}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--teal)", marginTop: 4 }}>
+                      Each share: {exp.split?.[0] ? currency(exp.split[0].amount) : "-"}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 16 }}>{currency(exp.totalPrice)}</div>
+                    <button
+                      className="btn btn-sm btn-outline"
+                      style={{ marginTop: 8 }}
+                      onClick={() => {
+                        const details = exp.split.map(s => `${s.name.split(" ")[0]} – ${s.status} ${s.status === "Pending" ? `(${currency(s.amount)})` : ""}`).join("\n");
+                        alert(
+                          `Expense details:\n\nItem: ${exp.name}\nQuantity: ${exp.quantity}\nTotal: ${currency(exp.totalPrice)}\nPurchased by: ${exp.purchasedBy}\n\nStatus:\n${details}`,
+                        );
+                      }}
+                    >
+                      View details
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              className="btn btn-sm btn-outline"
+              style={{ marginTop: 16 }}
+              onClick={() => setShowAddPurchased(true)}
+            >
+              + Add purchased item
+            </button>
+          </div>
         </div>
 
         {/* Right: Monthly rent + who owes what */}
@@ -1876,6 +2010,16 @@ function ExpensesPage({ data, onToast }) {
                   onChange={e => setRequiredForm(p => ({ ...p, quantity: e.target.value }))}
                 />
               </div>
+              <div className="input-group" style={{ gridColumn: "1 / -1" }}>
+                <label>Estimated Price (₹) - Optional</label>
+                <input
+                  className="input-field"
+                  type="number"
+                  placeholder="120"
+                  value={requiredForm.estimatedPrice}
+                  onChange={e => setRequiredForm(p => ({ ...p, estimatedPrice: e.target.value }))}
+                />
+              </div>
             </div>
             <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
               <button className="btn btn-outline" onClick={() => setShowAddRequired(false)}>Cancel</button>
@@ -1889,7 +2033,10 @@ function ExpensesPage({ data, onToast }) {
 
       {/* Add Purchased Item modal */}
       {showAddPurchased && (
-        <div className="modal-overlay" onClick={() => setShowAddPurchased(false)}>
+        <div className="modal-overlay" onClick={() => {
+          setShowAddPurchased(false);
+          setPurchasingRequiredId(null);
+        }}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 800, fontSize: 20, marginBottom: 16 }}>Add Purchased Item</h3>
             <div className="form-grid" style={{ gap: 14 }}>
@@ -1954,7 +2101,10 @@ function ExpensesPage({ data, onToast }) {
               </div>
             </div>
             <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-              <button className="btn btn-outline" onClick={() => setShowAddPurchased(false)}>Cancel</button>
+              <button className="btn btn-outline" onClick={() => {
+                setShowAddPurchased(false);
+                setPurchasingRequiredId(null);
+              }}>Cancel</button>
               <button
                 className="btn btn-amber"
                 style={{ flex: 1 }}
@@ -2079,6 +2229,47 @@ function VibeCheckPage({ data, isAdmin, onToast }) {
               </div>
             );
           })}
+        </div>
+      </div >
+    </div >
+  );
+}
+
+// ─── ROOMMATE DETAILS PAGE ──────────────────────────────────────────────────────
+function RoommateDetailsPage({ data }) {
+  return (
+    <div>
+      <div className="page-header fade-up">
+        <h1 className="page-title">Roommate Details 🪪</h1>
+        <p className="page-subtitle">Contact information and permanent addresses</p>
+      </div>
+      <div className="card fade-up-1">
+        <div style={{ display: "grid", gap: 16 }}>
+          {data.roommates.map(r => (
+            <div key={r.id} style={{ display: "flex", gap: 16, padding: "20px", background: "var(--cream)", borderRadius: "12px", border: "1px solid var(--border)" }}>
+              <div className="avatar avatar-lg" style={{ background: r.avatarBg, color: r.color, flexShrink: 0 }}>
+                {initials(r.name)}
+              </div>
+              <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                <div>
+                  <div style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Name</div>
+                  <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: "15px", color: "var(--ink)" }}>{r.name}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Phone</div>
+                  <div style={{ fontSize: "14px", color: "var(--slate)" }}>{r.phone}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Email</div>
+                  <div style={{ fontSize: "14px", color: "var(--slate)" }}>{r.email}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Permanent Address</div>
+                  <div style={{ fontSize: "14px", color: "var(--slate)", lineHeight: 1.4 }}>{r.address || "N/A"}</div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -2293,6 +2484,7 @@ export default function App() {
       case "expenses": return <ExpensesPage data={data} onToast={showToast} />;
       case "chores": return <ChoresPage data={data} onToast={showToast} />;
       case "vibes": return <VibeCheckPage data={data} isAdmin={true} onToast={showToast} />;
+      case "roommate-details": return <RoommateDetailsPage data={data} />;
       default: return <AdminOverview data={data} onNav={setActiveNav} notifications={notifications} onDismissNotif={dismissNotif} />;
     }
   };
@@ -2304,6 +2496,7 @@ export default function App() {
       case "expenses": return <ExpensesPage data={data} onToast={showToast} />;
       case "chores": return <ChoresPage data={data} onToast={showToast} />;
       case "vibes": return <VibeCheckPage data={data} isAdmin={false} onToast={showToast} />;
+      case "roommate-details": return <RoommateDetailsPage data={data} />;
       default: return <RoommateOverview data={data} onNav={setActiveNav} />;
     }
   };
@@ -2317,6 +2510,18 @@ export default function App() {
             onGoAdmin={() => setScreen("admin-reg")}
             onGoRoommate={() => setScreen("invite")}
             onGoInvite={() => setScreen("invite")}
+            onLogin={() => setScreen("login")}
+          />
+        )}
+        {screen === "login" && (
+          <RoommateLogin
+            onBack={() => setScreen("landing")}
+            onLogin={(formData) => {
+              showToast(`👋 Welcome back, ${formData.email}!`);
+              setScreen("roommate-dash");
+              setActiveNav("expenses");
+              setIsAdmin(false);
+            }}
           />
         )}
         {screen === "admin-reg" && (
