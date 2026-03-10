@@ -1737,6 +1737,14 @@ function ExpensesPage({ data, onToast }) {
             </div>
           ))}
 
+          <button
+            className="btn btn-sm btn-outline"
+            style={{ marginTop: 12 }}
+            onClick={() => setShowAddRequired(true)}
+          >
+            + Add required item
+          </button>
+
           <div style={{ height: 1, background: "var(--border)", margin: "18px 0" }} />
 
           <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 16 }}>Purchased Items</h3>
@@ -1772,6 +1780,13 @@ function ExpensesPage({ data, onToast }) {
               </div>
             </div>
           ))}
+          <button
+            className="btn btn-sm btn-outline"
+            style={{ marginTop: 12 }}
+            onClick={() => setShowAddPurchased(true)}
+          >
+            + Add purchased item
+          </button>
         </div>
 
         {/* Right: Monthly rent + who owes what */}
