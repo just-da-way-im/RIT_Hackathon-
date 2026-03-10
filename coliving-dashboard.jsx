@@ -1678,6 +1678,7 @@ function ExpensesPage({ data, onToast }) {
   const [showAddRequired, setShowAddRequired] = useState(false);
   const [showAddPurchased, setShowAddPurchased] = useState(false);
   const [purchasingRequiredId, setPurchasingRequiredId] = useState(null);
+  const [activeExpenseId, setActiveExpenseId] = useState(null);
 
   const [requiredForm, setRequiredForm] = useState({ name: "", quantity: "", estimatedPrice: "" });
   const [purchasedForm, setPurchasedForm] = useState({
@@ -1707,6 +1708,10 @@ function ExpensesPage({ data, onToast }) {
         setLoading(false);
       });
   }, []);
+
+  const activeExpense = activeExpenseId
+    ? purchasedItems.find(e => e.id === activeExpenseId)
+    : null;
 
   const roommatesWithAdmin = [...data.roommates, { id: "admin", name: "Priya Sharma (You)", color: "var(--amber)", avatarBg: "var(--amber-pale)" }];
 
@@ -1941,6 +1946,62 @@ function ExpensesPage({ data, onToast }) {
               + Add purchased item
             </button>
           </div>
+          <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 16 }}>Purchased Items</h3>
+          {purchasedItems.length === 0 && (
+            <p style={{ fontSize: 13, color: "var(--muted)" }}>No purchases recorded yet. Add a purchased item to split the cost.</p>
+          )}
+          {purchasedItems.map(exp => {
+            const totalShares = exp.split?.length || 0;
+            const paidShares = exp.split?.filter(s => s.status === "Paid").length || 0;
+            const progressPercent = totalShares ? Math.round((paidShares / totalShares) * 100) : 0;
+            return (
+              <div key={exp.id} className="expense-row">
+                <div className="expense-icon" style={{ background: "#dcfce7" }}>🧾</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 500, fontSize: 14 }}>{exp.name}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                    Qty: {exp.quantity} · Bought by {exp.purchasedBy} · {exp.createdAt}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
+                    <div style={{ fontSize: 11, color: "var(--teal)" }}>
+                      Each share: {exp.split?.[0] ? currency(exp.split[0].amount) : "-"}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                        Payment progress: <strong>{paidShares}/{totalShares || "?"}</strong> paid
+                      </div>
+                      <div className="progress-bar" style={{ width: 90 }}>
+                        <div
+                          className="progress-fill"
+                          style={{
+                            width: `${progressPercent}%`,
+                            background: paidShares === totalShares && totalShares > 0 ? "#22c55e" : "var(--amber)",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 16 }}>{currency(exp.totalPrice)}</div>
+                  <button
+                    className="btn btn-sm btn-outline"
+                    style={{ marginTop: 8 }}
+                    onClick={() => setActiveExpenseId(exp.id)}
+                  >
+                    View details
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          <button
+            className="btn btn-sm btn-outline"
+            style={{ marginTop: 12 }}
+            onClick={() => setShowAddPurchased(true)}
+          >
+            + Add purchased item
+          </button>
         </div>
 
         {/* Right: Monthly rent + who owes what */}
@@ -2119,6 +2180,167 @@ function ExpensesPage({ data, onToast }) {
                 Add & auto-split
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expense details modal */}
+      {activeExpense && (
+        <div className="modal-overlay" onClick={() => setActiveExpenseId(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div>
+                <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 800, fontSize: 20, marginBottom: 4 }}>
+                  Expense details
+                </h3>
+                <p style={{ fontSize: 13, color: "var(--muted)" }}>
+                  See who has paid and who is pending for this purchase.
+                </p>
+              </div>
+              <button
+                className="btn btn-outline btn-sm"
+                style={{ borderRadius: 999, paddingInline: 10 }}
+                onClick={() => setActiveExpenseId(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gap: 10, marginBottom: 20, fontSize: 13 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--muted)" }}>Item</span>
+                <span style={{ fontWeight: 600 }}>{activeExpense.name}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--muted)" }}>Quantity</span>
+                <span style={{ fontWeight: 500 }}>{activeExpense.quantity}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--muted)" }}>Total amount</span>
+                <span style={{ fontWeight: 600 }}>{currency(activeExpense.totalPrice)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--muted)" }}>Purchased by</span>
+                <span style={{ fontWeight: 500 }}>{activeExpense.purchasedBy}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--muted)" }}>Each roommate share</span>
+                <span style={{ fontWeight: 500 }}>
+                  {activeExpense.split?.[0] ? currency(activeExpense.split[0].amount) : "-"}
+                </span>
+              </div>
+            </div>
+
+            {(() => {
+              const totalShares = activeExpense.split?.length || 0;
+              const paidShares = activeExpense.split?.filter(s => s.status === "Paid").length || 0;
+              const progressPercent = totalShares ? Math.round((paidShares / totalShares) * 100) : 0;
+
+              return (
+                <div style={{ marginBottom: 20 }}>
+                  <h4
+                    style={{
+                      fontFamily: "Plus Jakarta Sans",
+                      fontWeight: 700,
+                      fontSize: 14,
+                      marginBottom: 8,
+                    }}
+                  >
+                    Payment status
+                  </h4>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>
+                    {paidShares} of {totalShares} roommates paid
+                  </div>
+                  <div className="progress-bar" style={{ marginBottom: 14 }}>
+                    <div
+                      className="progress-fill"
+                      style={{
+                        width: `${progressPercent}%`,
+                        background: paidShares === totalShares && totalShares > 0 ? "#22c55e" : "var(--amber)",
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {activeExpense.split?.map(s => (
+                      <div
+                        key={s.userId}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "8px 10px",
+                          borderRadius: 10,
+                          background: "var(--cream)",
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>
+                            {s.name}
+                          </div>
+                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                            Share: {currency(s.amount)}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: s.status === "Paid" ? "#16a34a" : "#b91c1c",
+                            }}
+                          >
+                            <span
+                              className={`status-dot ${
+                                s.status === "Paid" ? "dot-green" : "dot-rose"
+                              }`}
+                            />
+                            {s.status === "Paid" ? "Paid" : "Pending"}
+                          </span>
+                          {s.status === "Pending" && (
+                            <button
+                              className="btn btn-sm btn-outline"
+                              onClick={() => markSharePaid(activeExpense.id, s.userId)}
+                            >
+                              Mark paid
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {activeExpense.billPreview && (
+              <div style={{ marginTop: 12 }}>
+                <h4
+                  style={{
+                    fontFamily: "Plus Jakarta Sans",
+                    fontWeight: 700,
+                    fontSize: 14,
+                    marginBottom: 8,
+                  }}
+                >
+                  Bill snapshot
+                </h4>
+                <img
+                  src={activeExpense.billPreview}
+                  alt="Bill"
+                  style={{
+                    width: "100%",
+                    maxHeight: 220,
+                    objectFit: "cover",
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                  }}
+                />
+              </div>
+            )}
           </div>
         </div>
       )}
