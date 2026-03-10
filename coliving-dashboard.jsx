@@ -1594,26 +1594,124 @@ function PaymentsPage({ data, onToast, notifications, onDismissNotif }) {
 
 // ─── EXPENSES PAGE ────────────────────────────────────────────────────────────
 function ExpensesPage({ data, onToast }) {
-  const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ category: "", amount: "", icon: "🧾" });
-  const total = data.expenses.reduce((s, e) => s + e.amount, 0);
-  const perHead = Math.round(total / (data.roommates.length + 1));
+  const [showAddRequired, setShowAddRequired] = useState(false);
+  const [showAddPurchased, setShowAddPurchased] = useState(false);
+
+  const [requiredForm, setRequiredForm] = useState({ name: "", quantity: "" });
+  const [purchasedForm, setPurchasedForm] = useState({
+    name: "",
+    quantity: "",
+    totalPrice: "",
+    purchasedBy: "",
+    billFile: null,
+    billPreview: null,
+  });
+
+  const [requiredItems, setRequiredItems] = useState(data.requiredItems || []);
+  const [purchasedItems, setPurchasedItems] = useState(data.householdPurchases || []);
+
+  const roommatesWithAdmin = [...data.roommates, { id: "admin", name: "Priya Sharma (You)", color: "var(--amber)", avatarBg: "var(--amber-pale)" }];
+
+  const total = purchasedItems.reduce((s, e) => s + e.totalPrice, 0);
+  const perHead = roommatesWithAdmin.length ? Math.round(total / roommatesWithAdmin.length) : 0;
+
+  const handleBillChange = (file) => {
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      setPurchasedForm(p => ({ ...p, billFile: file, billPreview: ev.target.result }));
+    };
+    r.readAsDataURL(file);
+  };
+
+  const addRequiredItem = () => {
+    if (!requiredForm.name || !requiredForm.quantity) return;
+    setRequiredItems(prev => [
+      ...prev,
+      {
+        id: Date.now(),
+        name: requiredForm.name,
+        quantity: requiredForm.quantity,
+        addedBy: "You",
+      },
+    ]);
+    setRequiredForm({ name: "", quantity: "" });
+    setShowAddRequired(false);
+    onToast?.("Required item added to the shared list.");
+  };
+
+  const addPurchasedItem = () => {
+    const { name, quantity, totalPrice, purchasedBy } = purchasedForm;
+    if (!name || !quantity || !totalPrice || !purchasedBy) return;
+
+    const totalNum = Number(totalPrice);
+    if (!totalNum || totalNum <= 0 || !roommatesWithAdmin.length) return;
+
+    const share = Math.round(totalNum / roommatesWithAdmin.length);
+    const split = roommatesWithAdmin.map(r => ({
+      userId: r.id,
+      name: r.name,
+      status: r.name.startsWith(purchasedBy) ? "Paid" : "Pending",
+      amount: share,
+    }));
+
+    const item = {
+      id: Date.now(),
+      name,
+      quantity,
+      totalPrice: totalNum,
+      purchasedBy,
+      billPreview: purchasedForm.billPreview,
+      split,
+      createdAt: new Date().toLocaleString("en-IN"),
+    };
+
+    setPurchasedItems(prev => [item, ...prev]);
+    setPurchasedForm({
+      name: "",
+      quantity: "",
+      totalPrice: "",
+      purchasedBy: "",
+      billFile: null,
+      billPreview: null,
+    });
+    setShowAddPurchased(false);
+    onToast?.(`Expense added for ${name}. Everyone has been notified of their share.`);
+  };
+
+  const markSharePaid = (expenseId, userId) => {
+    setPurchasedItems(prev =>
+      prev.map(e =>
+        e.id !== expenseId
+          ? e
+          : {
+              ...e,
+              split: e.split.map(s =>
+                s.userId === userId ? { ...s, status: "Paid" } : s,
+              ),
+            },
+      ),
+    );
+  };
 
   return (
     <div>
       <div className="page-header fade-up" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <h1 className="page-title">Expense Ledger</h1>
-          <p className="page-subtitle">Track shared household expenses</p>
+          <h1 className="page-title">Household Expenses</h1>
+          <p className="page-subtitle">Required items and purchased items with auto-split</p>
         </div>
-        <button className="btn btn-amber" onClick={() => setShowAdd(true)}>+ Add Expense</button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button className="btn btn-outline btn-sm" onClick={() => setShowAddRequired(true)}>+ Add Required Item</button>
+          <button className="btn btn-amber btn-sm" onClick={() => setShowAddPurchased(true)}>+ Add Purchased Item</button>
+        </div>
       </div>
 
       <div className="stats-grid fade-up-1" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
         {[
-          { label: "Total This Month", value: currency(total), color: "var(--amber)" },
-          { label: "Per Person Share", value: currency(perHead), color: "var(--teal)" },
-          { label: "Expenses Count", value: data.expenses.length, color: "var(--slate)" },
+          { label: "Total Purchased This Month", value: currency(total), color: "var(--amber)" },
+          { label: "Per Person Expense Share", value: currency(perHead), color: "var(--teal)" },
+          { label: "Purchased Items", value: purchasedItems.length, color: "var(--slate)" },
         ].map((s, i) => (
           <div key={i} className="stat-card" style={{ borderLeft: `4px solid ${s.color}` }}>
             <div className="stat-label">{s.label}</div>
@@ -1622,57 +1720,219 @@ function ExpensesPage({ data, onToast }) {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1.1fr", gap: 24 }}>
+        {/* Left: Required & purchased lists */}
         <div className="card fade-up-2">
-          <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 20 }}>All Expenses</h3>
-          {data.expenses.map(e => (
-            <div key={e.id} className="expense-row">
-              <div className="expense-icon" style={{ background: e.color }}>{e.icon}</div>
+          <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 16 }}>Required Items</h3>
+          {requiredItems.length === 0 && (
+            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>No required items yet. Add what the house needs.</p>
+          )}
+          {requiredItems.map(item => (
+            <div key={item.id} className="expense-row">
+              <div className="expense-icon" style={{ background: "var(--cream)" }}>📝</div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 500, fontSize: 14 }}>{e.category}</div>
-                <div style={{ fontSize: 12, color: "var(--muted)" }}>Paid by {e.paidBy} · {e.date}</div>
+                <div style={{ fontWeight: 500, fontSize: 14 }}>{item.name}</div>
+                <div style={{ fontSize: 12, color: "var(--muted)" }}>Qty: {item.quantity} · Added by {item.addedBy}</div>
+              </div>
+            </div>
+          ))}
+
+          <div style={{ height: 1, background: "var(--border)", margin: "18px 0" }} />
+
+          <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 16 }}>Purchased Items</h3>
+          {purchasedItems.length === 0 && (
+            <p style={{ fontSize: 13, color: "var(--muted)" }}>No purchases recorded yet. Add a purchased item to split the cost.</p>
+          )}
+          {purchasedItems.map(exp => (
+            <div key={exp.id} className="expense-row">
+              <div className="expense-icon" style={{ background: "#dcfce7" }}>🧾</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 500, fontSize: 14 }}>{exp.name}</div>
+                <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                  Qty: {exp.quantity} · Bought by {exp.purchasedBy} · {exp.createdAt}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--teal)", marginTop: 4 }}>
+                  Each share: {exp.split?.[0] ? currency(exp.split[0].amount) : "-"}
+                </div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 16 }}>{currency(e.amount)}</div>
-                <div style={{ fontSize: 12, color: "var(--teal)" }}>Split: {currency(Math.round(e.amount / (data.roommates.length + 1)))} each</div>
+                <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 16 }}>{currency(exp.totalPrice)}</div>
+                <button
+                  className="btn btn-sm btn-outline"
+                  style={{ marginTop: 8 }}
+                  onClick={() => {
+                    const details = exp.split.map(s => `${s.name.split(" ")[0]} – ${s.status} ${s.status === "Pending" ? `(${currency(s.amount)})` : ""}`).join("\n");
+                    alert(
+                      `Expense details:\n\nItem: ${exp.name}\nQuantity: ${exp.quantity}\nTotal: ${currency(exp.totalPrice)}\nPurchased by: ${exp.purchasedBy}\n\nStatus:\n${details}`,
+                    );
+                  }}
+                >
+                  View details
+                </button>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="card fade-up-2">
-          <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 20 }}>Who Owes What</h3>
-          {[...data.roommates, { name: "Priya Sharma (You)", id: "admin", color: "var(--amber)", avatarBg: "var(--amber-pale)" }].map(r => (
-            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-              <div className="avatar" style={{ background: r.avatarBg, color: r.color }}>{initials(r.name)}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{r.name.split(" ")[0]}</div>
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: `${Math.random()*40+40}%`, background: r.color || "var(--teal)" }} />
+        {/* Right: Monthly rent + who owes what */}
+        <div style={{ display: "grid", gap: 16 }}>
+          <div className="card fade-up-2">
+            <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 12 }}>Monthly Rent</h3>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
+              Overview of fixed monthly rent for the house and each roommate.
+            </p>
+            <div style={{ display: "grid", gap: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 13, color: "var(--slate)" }}>Total House Rent</span>
+                <span style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 16 }}>
+                  {currency(data.house?.monthlyRent || data.summary?.monthlyRent || 25000)}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 13, color: "var(--slate)" }}>Per Roommate Rent Share</span>
+                <span style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 16 }}>
+                  {currency(data.summary?.roommateRentShare || Math.round((data.house?.monthlyRent || 25000) / (data.roommates.length + 1)))}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="card fade-up-2">
+            <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 20 }}>Who Owes What</h3>
+            {roommatesWithAdmin.map(r => (
+              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                <div className="avatar" style={{ background: r.avatarBg, color: r.color }}>{initials(r.name)}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{r.name.split(" ")[0]}</div>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${Math.random()*40+40}%`, background: r.color || "var(--teal)" }} />
+                  </div>
+                </div>
+                <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 15, minWidth: 60, textAlign: "right" }}>
+                  {currency(perHead)}
                 </div>
               </div>
-              <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 15, minWidth: 60, textAlign: "right" }}>{currency(perHead)}</div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
-      {showAdd && (
-        <div className="modal-overlay" onClick={() => setShowAdd(false)}>
+      {/* Add Required Item modal */}
+      {showAddRequired && (
+        <div className="modal-overlay" onClick={() => setShowAddRequired(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 800, fontSize: 22, marginBottom: 20 }}>Add Expense</h3>
-            <div className="form-grid" style={{ gap: 16 }}>
-              <div className="input-group"><label>Category</label>
-                <select className="input-field" value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
-                  <option value="">Select category…</option>
-                  {[["⚡ Electricity","Electricity"],["🛒 Groceries","Groceries"],["📶 Internet","Internet"],["🔥 Gas","Gas"],["🧹 Cleaning","Cleaning"],["🎮 Entertainment","Entertainment"]].map(([l,v]) => <option key={v} value={v}>{l}</option>)}
+            <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 800, fontSize: 20, marginBottom: 16 }}>Add Required Item</h3>
+            <div className="form-grid" style={{ gap: 14 }}>
+              <div className="input-group">
+                <label>Item name</label>
+                <input
+                  className="input-field"
+                  placeholder="Milk"
+                  value={requiredForm.name}
+                  onChange={e => setRequiredForm(p => ({ ...p, name: e.target.value }))}
+                />
+              </div>
+              <div className="input-group">
+                <label>Quantity</label>
+                <input
+                  className="input-field"
+                  placeholder="2 packets / 5 kg"
+                  value={requiredForm.quantity}
+                  onChange={e => setRequiredForm(p => ({ ...p, quantity: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+              <button className="btn btn-outline" onClick={() => setShowAddRequired(false)}>Cancel</button>
+              <button className="btn btn-amber" style={{ flex: 1 }} onClick={addRequiredItem} disabled={!requiredForm.name || !requiredForm.quantity}>
+                Add to list
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Purchased Item modal */}
+      {showAddPurchased && (
+        <div className="modal-overlay" onClick={() => setShowAddPurchased(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 800, fontSize: 20, marginBottom: 16 }}>Add Purchased Item</h3>
+            <div className="form-grid" style={{ gap: 14 }}>
+              <div className="input-group">
+                <label>Item name</label>
+                <input
+                  className="input-field"
+                  placeholder="Milk"
+                  value={purchasedForm.name}
+                  onChange={e => setPurchasedForm(p => ({ ...p, name: e.target.value }))}
+                />
+              </div>
+              <div className="input-group">
+                <label>Quantity purchased</label>
+                <input
+                  className="input-field"
+                  placeholder="2 packets"
+                  value={purchasedForm.quantity}
+                  onChange={e => setPurchasedForm(p => ({ ...p, quantity: e.target.value }))}
+                />
+              </div>
+              <div className="input-group">
+                <label>Total price (₹)</label>
+                <input
+                  className="input-field"
+                  type="number"
+                  placeholder="120"
+                  value={purchasedForm.totalPrice}
+                  onChange={e => setPurchasedForm(p => ({ ...p, totalPrice: e.target.value }))}
+                />
+              </div>
+              <div className="input-group">
+                <label>Purchased by</label>
+                <select
+                  className="input-field"
+                  value={purchasedForm.purchasedBy}
+                  onChange={e => setPurchasedForm(p => ({ ...p, purchasedBy: e.target.value }))}
+                >
+                  <option value="">Select roommate…</option>
+                  {roommatesWithAdmin.map(r => (
+                    <option key={r.id} value={r.name.split(" ")[0]}>
+                      {r.name}
+                    </option>
+                  ))}
                 </select>
               </div>
-              <div className="input-group"><label>Amount (₹)</label><input className="input-field" type="number" placeholder="1200" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} /></div>
+              <div className="input-group">
+                <label>Upload bill image (optional)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="input-field"
+                  onChange={e => handleBillChange(e.target.files?.[0])}
+                />
+                {purchasedForm.billPreview && (
+                  <img
+                    src={purchasedForm.billPreview}
+                    alt="Bill preview"
+                    style={{ marginTop: 8, maxHeight: 140, borderRadius: 8, border: "1px solid var(--border)", objectFit: "cover" }}
+                  />
+                )}
+              </div>
             </div>
-            <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
-              <button className="btn btn-outline" onClick={() => setShowAdd(false)}>Cancel</button>
-              <button className="btn btn-amber" style={{ flex: 1 }} onClick={() => { setShowAdd(false); onToast("Expense added and split!"); }}>Add & Split</button>
+            <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+              <button className="btn btn-outline" onClick={() => setShowAddPurchased(false)}>Cancel</button>
+              <button
+                className="btn btn-amber"
+                style={{ flex: 1 }}
+                onClick={addPurchasedItem}
+                disabled={
+                  !purchasedForm.name ||
+                  !purchasedForm.quantity ||
+                  !purchasedForm.totalPrice ||
+                  !purchasedForm.purchasedBy
+                }
+              >
+                Add & auto-split
+              </button>
             </div>
           </div>
         </div>
