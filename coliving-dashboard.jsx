@@ -1959,22 +1959,333 @@ function ExpensesPage({ data, onToast }) {
 // ─── CHORES PAGE ──────────────────────────────────────────────────────────────
 function ChoresPage({ data, onToast }) {
   const [chores, setChores] = useState(data.chores);
-  const toggleDone = (id) => { setChores(p => p.map(c => c.id === id ? { ...c, status: c.status === "done" ? "pending" : "done" } : c)); };
-  const rotate = () => { setChores(p => { const people = data.roommates.map(r => r.name); return p.map((c, i) => ({ ...c, assignedTo: people[i % people.length] })); }); onToast("Chores rotated among roommates!"); };
+
+  // Configurable members, tasks and days for auto-scheduler
+  const [members, setMembers] = useState(() => {
+    const base = data.roommates.map(r => r.name);
+    const adminName = data.house?.adminName || "Priya Sharma";
+    const all = adminName ? [...base, adminName] : base;
+    return Array.from(new Set(all));
+  });
+  const [tasks, setTasks] = useState(() => data.chores.map(c => c.name));
+  const [days, setDays] = useState(6);
+  const [newMember, setNewMember] = useState("");
+  const [newTask, setNewTask] = useState("");
+  const [schedule, setSchedule] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem("coliving-chore-schedule-v1");
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed.schedule) ? parsed.schedule : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const toggleDone = (id) => {
+    setChores(p =>
+      p.map(c =>
+        c.id === id ? { ...c, status: c.status === "done" ? "pending" : "done" } : c,
+      ),
+    );
+  };
+
+  // Simple per-task rotation for the live board
+  const rotateBoardOnce = () => {
+    setChores(p => {
+      const people = data.roommates.map(r => r.name);
+      if (!people.length) return p;
+      return p.map((c, i) => ({
+        ...c,
+        assignedTo: people[i % people.length],
+      }));
+    });
+    onToast?.("Chores rotated among roommates!");
+  };
+
+  const persistSchedule = (nextSchedule, nextMembers, nextTasks, nextDays) => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        "coliving-chore-schedule-v1",
+        JSON.stringify({
+          schedule: nextSchedule,
+          members: nextMembers,
+          tasks: nextTasks,
+          days: nextDays,
+        }),
+      );
+    } catch {
+      // ignore storage errors
+    }
+  };
+
+  const handleGenerate = () => {
+    if (!members.length || !tasks.length) {
+      onToast?.("Add at least 1 roommate and 1 chore to generate a schedule.");
+      return;
+    }
+    const numDays = Math.max(1, Number(days) || 6);
+
+    // Round-robin rotation: assigned_member = (task_index + day_index) % number_of_members
+    const nextSchedule = Array.from({ length: numDays }, (_, dayIndex) => ({
+      day: dayIndex + 1,
+      rows: tasks.map((taskName, taskIndex) => {
+        const memberIndex = (taskIndex + dayIndex) % members.length;
+        return {
+          taskName,
+          memberName: members[memberIndex],
+        };
+      }),
+    }));
+
+    setSchedule(nextSchedule);
+    persistSchedule(nextSchedule, members, tasks, numDays);
+    onToast?.(`Chore schedule generated for ${numDays} day(s).`);
+  };
+
+  const addMember = () => {
+    const trimmed = newMember.trim();
+    if (!trimmed) return;
+    setMembers(prev => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+    setNewMember("");
+    setSchedule([]);
+  };
+
+  const removeMember = (name) => {
+    setMembers(prev => prev.filter(m => m !== name));
+    setSchedule([]);
+  };
+
+  const addTask = () => {
+    const trimmed = newTask.trim();
+    if (!trimmed) return;
+    setTasks(prev => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+    setNewTask("");
+    setSchedule([]);
+  };
+
+  const removeTask = (name) => {
+    setTasks(prev => prev.filter(t => t !== name));
+    setSchedule([]);
+  };
+
+  const handleDaysChange = (value) => {
+    setDays(value);
+    setSchedule([]);
+  };
 
   return (
     <div>
       <div className="page-header fade-up" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <h1 className="page-title">Chores Board</h1>
-          <p className="page-subtitle">Keep the house clean and organized</p>
+          <p className="page-subtitle">Auto-rotate chores fairly across roommates</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <button className="btn btn-outline" onClick={rotate}>🔄 Rotate Chores</button>
-          <button className="btn btn-amber" onClick={() => onToast("Reminder sent to all!")}>📢 Remind All</button>
+          <button className="btn btn-outline" onClick={rotateBoardOnce}>🔄 Rotate Today&apos;s Assignees</button>
+          <button className="btn btn-amber" onClick={() => onToast?.("Reminder sent to all!")}>📢 Remind All</button>
         </div>
       </div>
 
+      {/* Auto-scheduler controls */}
+      <div className="card fade-up-1" style={{ marginBottom: 20 }}>
+        <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 12 }}>Chore Auto-Scheduler</h3>
+        <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
+          Configure roommates and chores once, then generate a multi-day schedule using round-robin rotation.
+        </p>
+
+        <div className="form-grid-2" style={{ gap: 16, marginBottom: 16 }}>
+          {/* Roommates */}
+          <div className="input-group">
+            <label>Roommates in rotation</label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <input
+                className="input-field"
+                placeholder="Add roommate name"
+                value={newMember}
+                onChange={e => setNewMember(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addMember(); } }}
+              />
+              <button className="btn btn-outline btn-sm" onClick={addMember}>+ Add</button>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {members.length === 0 && (
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>No roommates added yet.</span>
+              )}
+              {members.map(name => (
+                <span
+                  key={name}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 10px",
+                    borderRadius: 999,
+                    background: "var(--cream)",
+                    fontSize: 12,
+                  }}
+                >
+                  {name}
+                  <button
+                    type="button"
+                    onClick={() => removeMember(name)}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      color: "var(--muted)",
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Tasks */}
+          <div className="input-group">
+            <label>Chores / tasks</label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <input
+                className="input-field"
+                placeholder="Add chore name (e.g. Kitchen, Trash)"
+                value={newTask}
+                onChange={e => setNewTask(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addTask(); } }}
+              />
+              <button className="btn btn-outline btn-sm" onClick={addTask}>+ Add</button>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {tasks.length === 0 && (
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>No chores added yet.</span>
+              )}
+              {tasks.map(name => (
+                <span
+                  key={name}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 10px",
+                    borderRadius: 999,
+                    background: "#eef2ff",
+                    fontSize: 12,
+                  }}
+                >
+                  {name}
+                  <button
+                    type="button"
+                    onClick={() => removeTask(name)}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      color: "var(--muted)",
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="form-grid-2" style={{ gap: 16, alignItems: "flex-end" }}>
+          <div className="input-group" style={{ maxWidth: 220 }}>
+            <label>Number of days</label>
+            <input
+              className="input-field"
+              type="number"
+              min={1}
+              max={30}
+              value={days}
+              onChange={e => handleDaysChange(e.target.value)}
+            />
+            <span style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+              Default is 6 days. Rotation uses round-robin so chores stay fair, even if tasks &gt; roommates.
+            </span>
+          </div>
+
+          <div>
+            <button className="btn btn-amber" onClick={handleGenerate}>
+              ⚙️ Generate Schedule
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Generated schedule */}
+      {schedule.length > 0 && (
+        <div className="card fade-up-2" style={{ marginBottom: 24 }}>
+          <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 12 }}>
+            {schedule.length}-Day Chore Schedule
+          </h3>
+          <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 16 }}>
+            Each day, every task shifts to the next roommate in line using round-robin rotation.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
+            {schedule.map(day => (
+              <div
+                key={day.day}
+                style={{
+                  borderRadius: 12,
+                  border: "1px solid var(--border)",
+                  background: "var(--cream)",
+                  padding: 14,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 8,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: "Plus Jakarta Sans",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      color: "var(--slate)",
+                    }}
+                  >
+                    Day {day.day}
+                  </span>
+                </div>
+                <div style={{ borderRadius: 8, overflow: "hidden", background: "white", border: "1px solid var(--border)" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: "var(--amber-pale)" }}>
+                        <th style={{ textAlign: "left", padding: "6px 8px" }}>Task</th>
+                        <th style={{ textAlign: "left", padding: "6px 8px" }}>Assigned to</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {day.rows.map((row, i) => (
+                        <tr key={row.taskName + i} style={{ borderTop: "1px solid var(--border)" }}>
+                          <td style={{ padding: "6px 8px" }}>{row.taskName}</td>
+                          <td style={{ padding: "6px 8px" }}>
+                            <span style={{ fontWeight: 500 }}>{row.memberName}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Existing single-day board for quick status tracking */}
       <div style={{ display: "grid", gap: 14 }} className="fade-up-1">
         {chores.map(c => {
           const roommate = [...data.roommates, { name: "Priya Sharma", color: "var(--amber)", avatarBg: "var(--amber-pale)" }].find(r => r.name === c.assignedTo);
