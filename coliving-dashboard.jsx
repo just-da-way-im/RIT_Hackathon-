@@ -1699,8 +1699,10 @@ function ExpensesPage({ data, onToast }) {
     fetch("http://localhost:5000/api/data")
       .then(res => res.json())
       .then(dbData => {
-        setRequiredItems(dbData.requiredItems || []);
-        setPurchasedItems(dbData.purchasedItems || []);
+        const required = (dbData.requiredItems || []).map(r => ({ ...r, id: r.id || r._id }));
+        const purchased = (dbData.purchasedItems || []).map(p => ({ ...p, id: p.id || p._id }));
+        setRequiredItems(required);
+        setPurchasedItems(purchased);
         setLoading(false);
       })
       .catch(err => {
@@ -1710,7 +1712,7 @@ function ExpensesPage({ data, onToast }) {
   }, []);
 
   const activeExpense = activeExpenseId
-    ? purchasedItems.find(e => e.id === activeExpenseId)
+    ? purchasedItems.find(e => (e._id || e.id) === activeExpenseId)
     : null;
 
   const roommatesWithAdmin = [...data.roommates, { id: "admin", name: "Priya Sharma (You)", color: "var(--amber)", avatarBg: "var(--amber-pale)" }];
@@ -1799,6 +1801,7 @@ function ExpensesPage({ data, onToast }) {
         body: JSON.stringify(payload)
       });
       const savedItem = await res.json();
+      if (savedItem._id && !savedItem.id) savedItem.id = savedItem._id;
       setPurchasedItems(prev => [savedItem, ...prev]);
 
       if (purchasingRequiredId) {
@@ -1826,7 +1829,7 @@ function ExpensesPage({ data, onToast }) {
   const markSharePaid = (expenseId, userId) => {
     setPurchasedItems(prev =>
       prev.map(e =>
-        e.id !== expenseId
+        (e._id || e.id) !== expenseId
           ? e
           : {
             ...e,
@@ -1955,7 +1958,7 @@ function ExpensesPage({ data, onToast }) {
             const paidShares = exp.split?.filter(s => s.status === "Paid").length || 0;
             const progressPercent = totalShares ? Math.round((paidShares / totalShares) * 100) : 0;
             return (
-              <div key={exp.id} className="expense-row">
+              <div key={exp._id || exp.id} className="expense-row">
                 <div className="expense-icon" style={{ background: "#dcfce7" }}>🧾</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 500, fontSize: 14 }}>{exp.name}</div>
@@ -1987,7 +1990,7 @@ function ExpensesPage({ data, onToast }) {
                   <button
                     className="btn btn-sm btn-outline"
                     style={{ marginTop: 8 }}
-                    onClick={() => setActiveExpenseId(exp.id)}
+                    onClick={() => setActiveExpenseId(exp._id || exp.id)}
                   >
                     View details
                   </button>
@@ -2303,7 +2306,7 @@ function ExpensesPage({ data, onToast }) {
                           {s.status === "Pending" && (
                             <button
                               className="btn btn-sm btn-outline"
-                              onClick={() => markSharePaid(activeExpense.id, s.userId)}
+                              onClick={() => markSharePaid(activeExpense._id || activeExpense.id, s.userId)}
                             >
                               Mark paid
                             </button>
