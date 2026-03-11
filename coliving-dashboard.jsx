@@ -1692,25 +1692,9 @@ function ExpensesPage({ data, onToast }) {
 
   const [requiredItems, setRequiredItems] = useState([]);
   const [purchasedItems, setPurchasedItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // Fetch initial data from backend
-  useEffect(() => {
-    fetch("http://localhost:5000/api/data")
-      .then(res => res.json())
-      .then(dbData => {
-        setRequiredItems(dbData.requiredItems || []);
-        setPurchasedItems(dbData.purchasedItems || []);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoading(false);
-      });
-  }, []);
 
   const activeExpense = activeExpenseId
-    ? purchasedItems.find(e => e.id === activeExpenseId)
+    ? purchasedItems.find(e => (e._id || e.id) === activeExpenseId)
     : null;
 
   const roommatesWithAdmin = [...data.roommates, { id: "admin", name: "Priya Sharma (You)", color: "var(--amber)", avatarBg: "var(--amber-pale)" }];
@@ -1727,35 +1711,21 @@ function ExpensesPage({ data, onToast }) {
     r.readAsDataURL(file);
   };
 
-  const addRequiredItem = async () => {
+  const addRequiredItem = () => {
     if (!requiredForm.name || !requiredForm.quantity) return;
-
-    const payload = {
+    const id = String(Date.now());
+    const newItem = {
+      id,
+      _id: id,
       name: requiredForm.name.trim(),
       quantity: String(requiredForm.quantity).trim(),
-      addedBy: "You"
+      addedBy: "You",
+      createdAt: new Date().toISOString(),
     };
-
-    try {
-      const res = await fetch("http://localhost:5000/api/required-items", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        onToast?.(data.error || data.message || "Error adding required item.");
-        return;
-      }
-      const savedItem = data;
-      setRequiredItems(prev => [savedItem, ...prev]);
-      setRequiredForm({ name: "", quantity: "" });
-      setShowAddRequired(false);
-      onToast?.("Required item added to the shared list.");
-    } catch (e) {
-      console.error(e);
-      onToast?.("Error adding required item. Is the backend running on port 5000?");
-    }
+    setRequiredItems(prev => [newItem, ...prev]);
+    setRequiredForm({ name: "", quantity: "" });
+    setShowAddRequired(false);
+    onToast?.("Required item added to the shared list.");
   };
 
   const handlePurchaseRequired = (item) => {
@@ -1767,11 +1737,11 @@ function ExpensesPage({ data, onToast }) {
       billFile: null,
       billPreview: null,
     });
-    setPurchasingRequiredId(item.id);
+    setPurchasingRequiredId(item._id || item.id);
     setShowAddPurchased(true);
   };
 
-  const addPurchasedItem = async () => {
+  const addPurchasedItem = () => {
     const { name, quantity, totalPrice, purchasedBy } = purchasedForm;
     if (!name || !quantity || !totalPrice || !purchasedBy) return;
 
@@ -1786,50 +1756,41 @@ function ExpensesPage({ data, onToast }) {
       amount: share,
     }));
 
-    const payload = {
+    const id = String(Date.now());
+    const newItem = {
+      id,
+      _id: id,
       name,
       quantity,
       totalPrice: totalNum,
       purchasedBy,
-      billPreview: purchasedForm.billPreview,
-      split
+      billPreview: purchasedForm.billPreview || null,
+      split,
+      createdAt: new Date().toISOString(),
     };
+    setPurchasedItems(prev => [newItem, ...prev]);
 
-    try {
-      const res = await fetch("http://localhost:5000/api/purchased-items", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const savedItem = await res.json();
-      setPurchasedItems(prev => [savedItem, ...prev]);
-
-      if (purchasingRequiredId) {
-        await fetch(`http://localhost:5000/api/required-items/${purchasingRequiredId}`, { method: "DELETE" });
-        setRequiredItems(prev => prev.filter(r => r._id !== purchasingRequiredId));
-        setPurchasingRequiredId(null);
-      }
-
-      setPurchasedForm({
-        name: "",
-        quantity: "",
-        totalPrice: "",
-        purchasedBy: "",
-        billFile: null,
-        billPreview: null,
-      });
-      setShowAddPurchased(false);
-      onToast?.(`Expense added for ${name}. Everyone has been notified of their share.`);
-    } catch (e) {
-      console.error(e);
-      onToast?.("Error adding expense.");
+    if (purchasingRequiredId) {
+      setRequiredItems(prev => prev.filter(r => String(r._id || r.id) !== String(purchasingRequiredId)));
+      setPurchasingRequiredId(null);
     }
+
+    setPurchasedForm({
+      name: "",
+      quantity: "",
+      totalPrice: "",
+      purchasedBy: "",
+      billFile: null,
+      billPreview: null,
+    });
+    setShowAddPurchased(false);
+    onToast?.(`Expense added for ${name}. Everyone has been notified of their share.`);
   };
 
   const markSharePaid = (expenseId, userId) => {
     setPurchasedItems(prev =>
       prev.map(e =>
-        e.id !== expenseId
+        (e._id || e.id) !== expenseId
           ? e
           : {
             ...e,
