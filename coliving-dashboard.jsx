@@ -105,7 +105,7 @@ const CSS = `
   .nav-icon { font-size:18px; width:22px; text-align:center; }
 
   /* MAIN CONTENT */
-  .main { margin-left:240px; padding:40px; min-height:100vh; }
+  .main { margin-left:240px; padding:40px; min-height:100vh; display:flex; flex-direction:column; }
   .page-header { margin-bottom:32px; }
   .page-title { font-size:32px; font-weight:800; color:var(--ink); letter-spacing:-0.03em; }
   .page-subtitle { font-size:15px; color:var(--muted); margin-top:4px; }
@@ -245,11 +245,16 @@ const INITIAL_DATA = {
     { id: "p5", roommate: "Rohan Das", amount: 8500, type: "Rent", date: null, status: "unpaid", proof: false },
     { id: "p6", roommate: "Rohan Das", amount: 17000, type: "Deposit", date: null, status: "unpaid", proof: false },
   ],
+  messages: [
+    { id: "m1", senderName: "Priya Sharma", senderId: "admin", text: "Hey everyone! Don't forget rent is due by the 5th.", time: "10:00 AM", isMe: false, avatarBg: "var(--amber-pale)", color: "var(--amber)" },
+    { id: "m2", senderName: "Arjun Mehta", senderId: "r1", text: "Got it, I'll pay mine tomorrow.", time: "10:15 AM", isMe: false, avatarBg: "#dbeafe", color: "#1d4ed8" },
+    { id: "m3", senderName: "Sneha Patel", senderId: "r2", text: "Also, we are out of milk and eggs!", time: "10:30 AM", isMe: false, avatarBg: "#fee2e2", color: "#dc2626" },
+  ],
 };
 
 // ─── UTILITIES ────────────────────────────────────────────────────────────────
-const initials = (name) => name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-const currency = (n) => `₹${n.toLocaleString("en-IN")}`;
+const initials = (name) => (name || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+const currency = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 const vibeConfig = { free: { label: "Free", emoji: "😊", color: "#22c55e", dot: "dot-green" }, busy: { label: "Busy", emoji: "📚", color: "#2563eb", dot: "dot-amber" }, dnd: { label: "Do Not Disturb", emoji: "🔕", color: "#dc2626", dot: "dot-rose" } };
 
 // ─── MINI QR CODE (visual only) ──────────────────────────────────────────────
@@ -285,7 +290,7 @@ function RoommateLogin({ onLogin, onBack }) {
       <div className="form-card fade-up">
         <div className="form-logo">Co-Living <span>Harmony</span></div>
         <h2 className="form-title">Welcome Back</h2>
-        <p className="form-subtitle">Log in to your roommate account</p>
+        <p className="form-subtitle">Log in to your house dashboard</p>
 
         <div className="form-grid">
           <div className="input-group">
@@ -310,16 +315,52 @@ function RoommateLogin({ onLogin, onBack }) {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 12, marginTop: 32 }}>
-          <button className="btn btn-outline" onClick={onBack}>← Back</button>
-          <button
-            className="btn btn-amber"
-            style={{ flex: 1, justifyContent: "center" }}
-            disabled={!form.email || !form.password}
-            onClick={() => onLogin(form)}
-          >
-            Log In →
-          </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 32 }}>
+          <div style={{ display: "flex", gap: 12 }}>
+            <button
+              className="btn btn-amber"
+              style={{ flex: 1, justifyContent: "center" }}
+              disabled={!form.email || !form.password}
+              onClick={async () => {
+                try {
+                  const res = await fetch("http://localhost:5000/api/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ...form, role: "admin" })
+                  });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error);
+                  onLogin(data.user);
+                } catch (err) {
+                  alert(err.message);
+                }
+              }}
+            >
+              Log In as Admin
+            </button>
+            <button
+              className="btn btn-sage"
+              style={{ flex: 1, justifyContent: "center" }}
+              disabled={!form.email || !form.password}
+              onClick={async () => {
+                try {
+                  const res = await fetch("http://localhost:5000/api/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ...form, role: "roommate" })
+                  });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error);
+                  onLogin(data.user);
+                } catch (err) {
+                  alert(err.message);
+                }
+              }}
+            >
+              Log In as Roommate
+            </button>
+          </div>
+          <button className="btn btn-outline" style={{ width: "100%", justifyContent: "center" }} onClick={onBack}>← Back to Home</button>
         </div>
       </div>
     </div>
@@ -349,10 +390,10 @@ function Landing({ onGoAdmin, onGoRoommate, onGoInvite, onLogin }) {
 
         <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap", marginTop: 24 }}>
           <button className="btn btn-amber btn-lg" onClick={onGoAdmin}>
-            🏡 Admin — Create a House
+            🏡 Create a New House (Admin)
           </button>
           <button className="btn btn-lg" style={{ background: "rgba(255,255,255,0.1)", color: "white", border: "1.5px solid rgba(255,255,255,0.2)" }} onClick={onLogin}>
-            🙋 I'm a Roommate
+            🔑 Log In to Dashboard
           </button>
         </div>
 
@@ -373,7 +414,7 @@ const EMPTY_ROOMMATE = { name: "", email: "", phone: "", rentShare: "", deposit:
 
 function AdminRegistration({ onComplete }) {
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", houseName: "", rent: "", agreement: null, upiId: "", upiApp: "googlepay", qrFile: null, qrPreview: null });
+  const [form, setForm] = useState({ name: "", phone: "", email: "", password: "", address: "", houseName: "", rent: "", agreement: null, upiId: "", upiApp: "googlepay", qrFile: null, qrPreview: null });
   const [touched, setTouched] = useState({});
   const [roommates, setRoomates] = useState([{ ...EMPTY_ROOMMATE, id: Date.now() }]);
   const [sentEmails, setSentEmails] = useState([]);
@@ -392,7 +433,7 @@ function AdminRegistration({ onComplete }) {
   const isAddressValid = (address) => /\b[1-9][0-9]{5}\b/.test(address);
 
   const stepLabels = ["Your Info", "House Setup", "Add Roommates", "Send Invites"];
-  const canNext1 = form.name && form.email && isEmailValid(form.email) && form.phone && isPhoneValid(form.phone) && form.address && isAddressValid(form.address);
+  const canNext1 = form.name && form.email && isEmailValid(form.email) && form.password?.length >= 6 && form.phone && isPhoneValid(form.phone) && form.address && isAddressValid(form.address);
   const canNext2 = form.houseName && form.rent && form.upiId;
   const canNext3 = roommates.length > 0 && roommates.every(r => r.name && isEmailValid(r.email) && r.rentShare && r.rentShare > 0 && (!r.phone || isPhoneValid(r.phone)));
 
@@ -420,7 +461,7 @@ function AdminRegistration({ onComplete }) {
     }, 700);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step === 1 && canNext1) setStep(2);
     else if (step === 2 && canNext2) setStep(3);
     else if (step === 3 && canNext3) {
@@ -428,7 +469,36 @@ function AdminRegistration({ onComplete }) {
       setStep(4);
       simulateSend(valid);
     }
-    else if (step === 4) onComplete({ ...form, roommates, rent: parseInt(form.rent) });
+    else if (step === 4) {
+      // ── API INTEGRATION ──
+      setSending(true);
+      try {
+        const payload = {
+          houseName: form.houseName,
+          address: form.address,
+          upiId: form.upiId,
+          rent: Number(form.rent),
+          adminName: form.name,
+          adminEmail: form.email,
+          adminPhone: form.phone,
+          adminPassword: form.password,
+          roommates: roommates.filter(r => r.name && r.email)
+        };
+        const res = await fetch("http://localhost:5000/api/auth/register-admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to register");
+
+        onComplete({ ...form, roommates, rent: parseInt(form.rent), dbHouse: data.house, dbAdmin: data.admin });
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        setSending(false);
+      }
+    }
   };
 
   return (
@@ -465,6 +535,11 @@ function AdminRegistration({ onComplete }) {
                   <label>Email</label>
                   <input className="input-field" type="email" placeholder="you@email.com" value={form.email} onChange={e => setF("email", e.target.value)} onBlur={() => setT("email")} />
                   {touched.email && form.email && !isEmailValid(form.email) && <span style={{ fontSize: 11, color: "var(--rose)" }}>Enter a valid email address</span>}
+                </div>
+                <div className="input-group">
+                  <label>Password</label>
+                  <input className="input-field" type="password" placeholder="Min 6 characters" value={form.password} onChange={e => setF("password", e.target.value)} onBlur={() => setT("password")} />
+                  {touched.password && form.password?.length < 6 && <span style={{ fontSize: 11, color: "var(--rose)" }}>Password must be at least 6 characters</span>}
                 </div>
                 <div className="input-group">
                   <label>Phone</label>
@@ -1307,13 +1382,14 @@ function RoommateInvite({ onAccept, onReject }) {
 }
 
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
-function Sidebar({ active, onNav, isAdmin, notifCount }) {
+function Sidebar({ active, onNav, isAdmin, notifCount, currentUser, onLogout }) {
   const adminNav = [
     { id: "overview", icon: "📊", label: "Overview" },
     { id: "roommates", icon: "👥", label: "Roommates" },
     { id: "payments", icon: "💳", label: "Payments", badge: notifCount },
     { id: "expenses", icon: "📋", label: "Expenses" },
     { id: "chores", icon: "🧹", label: "Chores" },
+    { id: "chat", icon: "💬", label: "House Chat" },
     { id: "vibes", icon: "😊", label: "Vibe Check" },
     { id: "roommate-details", icon: "🪪", label: "Roommate Details" },
   ];
@@ -1322,6 +1398,7 @@ function Sidebar({ active, onNav, isAdmin, notifCount }) {
     { id: "my-payments", icon: "💳", label: "My Payments" },
     { id: "expenses", icon: "📋", label: "Expenses" },
     { id: "chores", icon: "🧹", label: "Chores" },
+    { id: "chat", icon: "💬", label: "House Chat" },
     { id: "vibes", icon: "😊", label: "Vibe Check" },
     { id: "roommate-details", icon: "🪪", label: "Roommate Details" },
   ];
@@ -1361,7 +1438,8 @@ function Sidebar({ active, onNav, isAdmin, notifCount }) {
       )}
       <div style={{ padding: "12px 16px", background: "rgba(255,255,255,0.06)", borderRadius: 10 }}>
         <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 2 }}>{isAdmin ? "Admin" : "Roommate"}</div>
-        <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 600, color: "white", fontSize: 14 }}>{isAdmin ? "Priya Sharma" : "Arjun Mehta"}</div>
+        <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 600, color: "white", fontSize: 14, marginBottom: 8 }}>{currentUser?.name || (isAdmin ? "Admin" : "Roommate")}</div>
+        <button className="btn btn-sm" style={{ width: "100%", justifyContent: "center", color: "#fca5a5", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }} onClick={onLogout}>Log Out</button>
       </div>
     </div>
   );
@@ -1374,7 +1452,7 @@ function AdminOverview({ data, onNav, notifications, onDismissNotif }) {
   const active = data.roommates.filter(r => r.status === "active").length;
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <div className="page-header fade-up">
         <h1 className="page-title">{data.house.name}</h1>
         <p className="page-subtitle">{data.house.address} • <span className="badge badge-teal">🟢 Active</span></p>
@@ -1429,13 +1507,13 @@ function AdminOverview({ data, onNav, notifications, onDismissNotif }) {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-        <div className="card fade-up-2">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, flex: 1 }}>
+        <div className="card fade-up-2" style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
             <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700 }}>Roommates</h3>
             <button className="btn btn-sm btn-amber" onClick={() => onNav("roommates")}>Manage</button>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, overflowY: "auto", flex: 1, minHeight: 0 }}>
             {data.roommates.map(r => (
               <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div className="avatar" style={{ background: r.avatarBg, color: r.color }}>{initials(r.name)}</div>
@@ -1692,8 +1770,6 @@ function ExpensesPage({ data, onToast }) {
 
   const [requiredItems, setRequiredItems] = useState([]);
   const [purchasedItems, setPurchasedItems] = useState([]);
-<<<<<<< HEAD
-=======
   const [loading, setLoading] = useState(true);
 
   // Fetch initial data from backend
@@ -1712,7 +1788,6 @@ function ExpensesPage({ data, onToast }) {
         setLoading(false);
       });
   }, []);
->>>>>>> 72daf0d157497217c70445046139d4249d51f3f6
 
   const activeExpense = activeExpenseId
     ? purchasedItems.find(e => (e._id || e.id) === activeExpenseId)
@@ -1732,21 +1807,33 @@ function ExpensesPage({ data, onToast }) {
     r.readAsDataURL(file);
   };
 
-  const addRequiredItem = () => {
+  const addRequiredItem = async () => {
     if (!requiredForm.name || !requiredForm.quantity) return;
-    const id = String(Date.now());
-    const newItem = {
-      id,
-      _id: id,
+
+    const payload = {
       name: requiredForm.name.trim(),
       quantity: String(requiredForm.quantity).trim(),
       addedBy: "You",
       createdAt: new Date().toISOString(),
     };
-    setRequiredItems(prev => [newItem, ...prev]);
-    setRequiredForm({ name: "", quantity: "" });
-    setShowAddRequired(false);
-    onToast?.("Required item added to the shared list.");
+
+    try {
+      const res = await fetch("http://localhost:5000/api/required-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const savedItem = await res.json();
+      if (savedItem._id && !savedItem.id) savedItem.id = savedItem._id;
+
+      setRequiredItems(prev => [savedItem, ...prev]);
+      setRequiredForm({ name: "", quantity: "" });
+      setShowAddRequired(false);
+      onToast?.("Required item added to the shared list.");
+    } catch (e) {
+      console.error("Error adding required item:", e);
+      onToast?.("Error adding required item.");
+    }
   };
 
   const handlePurchaseRequired = (item) => {
@@ -1762,7 +1849,7 @@ function ExpensesPage({ data, onToast }) {
     setShowAddPurchased(true);
   };
 
-  const addPurchasedItem = () => {
+  const addPurchasedItem = async () => {
     const { name, quantity, totalPrice, purchasedBy } = purchasedForm;
     if (!name || !quantity || !totalPrice || !purchasedBy) return;
 
@@ -1777,10 +1864,7 @@ function ExpensesPage({ data, onToast }) {
       amount: share,
     }));
 
-    const id = String(Date.now());
-    const newItem = {
-      id,
-      _id: id,
+    const payload = {
       name,
       quantity,
       totalPrice: totalNum,
@@ -1789,13 +1873,7 @@ function ExpensesPage({ data, onToast }) {
       split,
       createdAt: new Date().toISOString(),
     };
-    setPurchasedItems(prev => [newItem, ...prev]);
 
-<<<<<<< HEAD
-    if (purchasingRequiredId) {
-      setRequiredItems(prev => prev.filter(r => String(r._id || r.id) !== String(purchasingRequiredId)));
-      setPurchasingRequiredId(null);
-=======
     try {
       const res = await fetch("http://localhost:5000/api/purchased-items", {
         method: "POST",
@@ -1825,7 +1903,6 @@ function ExpensesPage({ data, onToast }) {
     } catch (e) {
       console.error(e);
       onToast?.("Error adding expense.");
->>>>>>> 72daf0d157497217c70445046139d4249d51f3f6
     }
 
     setPurchasedForm({
@@ -1856,8 +1933,8 @@ function ExpensesPage({ data, onToast }) {
   };
 
   return (
-    <div>
-      <div className="page-header fade-up" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+      <div className="page-header fade-up" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexShrink: 0 }}>
         <div>
           <h1 className="page-title">Household Expenses</h1>
           <p className="page-subtitle">Required items and purchased items with auto-split</p>
@@ -1881,11 +1958,11 @@ function ExpensesPage({ data, onToast }) {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1.1fr", gap: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1.1fr", gap: 24, flex: 1, minHeight: 0 }}>
         {/* Left: Required & purchased lists */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           {/* Required Items History */}
-          <div className="card fade-up-2" style={{ display: "flex", flexDirection: "column", maxHeight: 420 }}>
+          <div className="card fade-up-2" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
             <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 16 }}>Required Items</h3>
             <div style={{ overflowY: "auto", flex: 1, paddingRight: 8, display: "flex", flexDirection: "column", gap: 4 }}>
               {requiredItems.length === 0 && (
@@ -1918,7 +1995,7 @@ function ExpensesPage({ data, onToast }) {
           </div>
 
           {/* Purchased Items History */}
-          <div className="card fade-up-2" style={{ display: "flex", flexDirection: "column", maxHeight: 520 }}>
+          <div className="card fade-up-2" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
             <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 16 }}>Purchased Items</h3>
             <div style={{ overflowY: "auto", flex: 1, paddingRight: 8, display: "flex", flexDirection: "column", gap: 4 }}>
               {purchasedItems.length === 0 && (
@@ -1941,12 +2018,7 @@ function ExpensesPage({ data, onToast }) {
                     <button
                       className="btn btn-sm btn-outline"
                       style={{ marginTop: 8 }}
-                      onClick={() => {
-                        const details = exp.split.map(s => `${s.name.split(" ")[0]} – ${s.status} ${s.status === "Pending" ? `(${currency(s.amount)})` : ""}`).join("\n");
-                        alert(
-                          `Expense details:\n\nItem: ${exp.name}\nQuantity: ${exp.quantity}\nTotal: ${currency(exp.totalPrice)}\nPurchased by: ${exp.purchasedBy}\n\nStatus:\n${details}`,
-                        );
-                      }}
+                      onClick={() => setActiveExpenseId(exp._id || exp.id)}
                     >
                       View details
                     </button>
@@ -2023,9 +2095,12 @@ function ExpensesPage({ data, onToast }) {
         {/* Right: Monthly rent + who owes what */}
         <div style={{ display: "grid", gap: 16 }}>
           <div className="card fade-up-2">
-            <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 12 }}>Monthly Rent</h3>
+            <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 4 }}>Monthly Rent</h3>
+            <div style={{ fontSize: 13, color: "var(--amber)", fontWeight: 600, marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              <span>⚠️</span> Rent is due by the 5th of every month
+            </div>
             <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
-              Overview of fixed monthly rent for the house and each roommate.
+              Overview of fixed monthly rent for the house and payment status of each roommate.
             </p>
             <div style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -2039,6 +2114,48 @@ function ExpensesPage({ data, onToast }) {
                 <span style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 16 }}>
                   {currency(data.summary?.roommateRentShare || Math.round((data.house?.monthlyRent || 25000) / (data.roommates.length + 1)))}
                 </span>
+              </div>
+
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+                <h4 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 600, fontSize: 13, color: "var(--slate)", marginBottom: 12 }}>This Month's Payments</h4>
+                <div style={{ display: "grid", gap: 12 }}>
+                  {data.roommates.map(r => {
+                    const payment = data.payments?.find(p => p.roommate === r.name && p.type === "Rent");
+                    let statusText = "Unpaid";
+                    let statusColor = "var(--rose)";
+                    let dateText = "Pending payment";
+
+                    if (payment && payment.date) {
+                      const payDate = new Date(payment.date);
+                      dateText = `Paid on ${payDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+                      // Assume rent due by the 5th of the month
+                      if (payDate.getDate() <= 5) {
+                        statusText = "Paid Early";
+                        statusColor = "var(--teal)";
+                      } else {
+                        statusText = "Paid Late";
+                        statusColor = "var(--amber)";
+                      }
+                    }
+
+                    return (
+                      <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div className="avatar" style={{ background: r.avatarBg, color: r.color, width: 32, height: 32, fontSize: 12 }}>
+                            {initials(r.name)}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{r.name}</div>
+                            <div style={{ fontSize: 11, color: "var(--muted)" }}>{dateText}</div>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: statusColor, background: `${statusColor}15`, padding: "4px 8px", borderRadius: 6, letterSpacing: "0.03em", textTransform: "uppercase" }}>
+                          {statusText}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
@@ -2300,9 +2417,8 @@ function ExpensesPage({ data, onToast }) {
                             }}
                           >
                             <span
-                              className={`status-dot ${
-                                s.status === "Paid" ? "dot-green" : "dot-rose"
-                              }`}
+                              className={`status-dot ${s.status === "Paid" ? "dot-green" : "dot-rose"
+                                }`}
                             />
                             {s.status === "Paid" ? "Paid" : "Pending"}
                           </span>
@@ -2356,7 +2472,24 @@ function ExpensesPage({ data, onToast }) {
 
 // ─── CHORES PAGE ──────────────────────────────────────────────────────────────
 function ChoresPage({ data, onToast }) {
-  const [chores, setChores] = useState(data.chores);
+  const [chores, setChores] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch initial data from backend
+  useEffect(() => {
+    fetch("http://localhost:5000/api/data")
+      .then(res => res.json())
+      .then(dbData => {
+        const dbChores = (dbData.chores || []).map(c => ({ ...c, id: c.id || c._id }));
+        setChores(dbChores.length > 0 ? dbChores : data.chores);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setChores(data.chores); // Fallback
+        setLoading(false);
+      });
+  }, [data.chores]);
 
   // Configurable members, tasks and days for auto-scheduler
   const [members, setMembers] = useState(() => {
@@ -2365,7 +2498,10 @@ function ChoresPage({ data, onToast }) {
     const all = adminName ? [...base, adminName] : base;
     return Array.from(new Set(all));
   });
-  const [tasks, setTasks] = useState(() => data.chores.map(c => c.name));
+  const [tasks, setTasks] = useState(() => {
+    // Only set from props initially, the effect above will update chores state
+    return data.chores.map(c => c.name);
+  });
   const [days, setDays] = useState(6);
   const [newMember, setNewMember] = useState("");
   const [newTask, setNewTask] = useState("");
@@ -2381,25 +2517,64 @@ function ChoresPage({ data, onToast }) {
     }
   });
 
-  const toggleDone = (id) => {
+  const toggleDone = async (id) => {
+    const targetChore = chores.find(c => c.id === id || c._id === id);
+    if (!targetChore) return;
+
+    const newStatus = targetChore.status === "done" ? "pending" : "done";
+
+    // Optimistic UI update
     setChores(p =>
       p.map(c =>
-        c.id === id ? { ...c, status: c.status === "done" ? "pending" : "done" } : c,
+        (c.id === id || c._id === id) ? { ...c, status: newStatus } : c,
       ),
     );
+
+    try {
+      await fetch(`http://localhost:5000/api/chores/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus })
+      });
+    } catch (err) {
+      console.error("Failed to update chore status", err);
+      // Revert on error
+      setChores(p =>
+        p.map(c =>
+          (c.id === id || c._id === id) ? { ...c, status: targetChore.status } : c,
+        ),
+      );
+      onToast?.("Failed to update chore status.");
+    }
   };
 
   // Simple per-task rotation for the live board
-  const rotateBoardOnce = () => {
+  const rotateBoardOnce = async () => {
+    const people = data.roommates.map(r => r.name);
+    if (!people.length) return;
+
+    let updatedChoresLocal = [];
+
     setChores(p => {
-      const people = data.roommates.map(r => r.name);
-      if (!people.length) return p;
-      return p.map((c, i) => ({
+      updatedChoresLocal = p.map((c, i) => ({
         ...c,
         assignedTo: people[i % people.length],
       }));
+      return updatedChoresLocal;
     });
-    onToast?.("Chores rotated among roommates!");
+
+    try {
+      await fetch("http://localhost:5000/api/chores/bulk-update", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chores: updatedChoresLocal })
+      });
+      onToast?.("Chores rotated among roommates!");
+    } catch (err) {
+      console.error("Failed to rotate chores", err);
+      // We could revert here, but for now just show error
+      onToast?.("Failed to rotate chores on the server.");
+    }
   };
 
   const persistSchedule = (nextSchedule, nextMembers, nextTasks, nextDays) => {
@@ -2627,15 +2802,16 @@ function ChoresPage({ data, onToast }) {
           <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 16 }}>
             Each day, every task shifts to the next roommate in line using round-robin rotation.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
             {schedule.map(day => (
               <div
                 key={day.day}
                 style={{
-                  borderRadius: 12,
-                  border: "1px solid var(--border)",
-                  background: "var(--cream)",
-                  padding: 14,
+                  borderRadius: 16,
+                  border: "2px solid #e0e7ff",
+                  background: "#f5f8ff",
+                  overflow: "hidden",
+                  boxShadow: "0 4px 12px rgba(99,102,241,0.05)"
                 }}
               >
                 <div
@@ -2643,39 +2819,40 @@ function ChoresPage({ data, onToast }) {
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    marginBottom: 8,
+                    padding: "16px 20px",
+                    background: "#e0e7ff",
                   }}
                 >
                   <span
                     style={{
                       fontFamily: "Plus Jakarta Sans",
-                      fontWeight: 700,
-                      fontSize: 13,
-                      color: "var(--slate)",
+                      fontWeight: 800,
+                      fontSize: 16,
+                      color: "#3730a3",
                     }}
                   >
-                    Day {day.day}
+                    📅 Day {day.day}
                   </span>
                 </div>
-                <div style={{ borderRadius: 8, overflow: "hidden", background: "white", border: "1px solid var(--border)" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                    <thead>
-                      <tr style={{ background: "var(--amber-pale)" }}>
-                        <th style={{ textAlign: "left", padding: "6px 8px" }}>Task</th>
-                        <th style={{ textAlign: "left", padding: "6px 8px" }}>Assigned to</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {day.rows.map((row, i) => (
-                        <tr key={row.taskName + i} style={{ borderTop: "1px solid var(--border)" }}>
-                          <td style={{ padding: "6px 8px" }}>{row.taskName}</td>
-                          <td style={{ padding: "6px 8px" }}>
-                            <span style={{ fontWeight: 500 }}>{row.memberName}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div style={{ padding: "16px 20px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {day.rows.map((row, i) => (
+                      <div key={row.taskName + i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 12, borderBottom: i === day.rows.length - 1 ? "none" : "1px dashed #cbd5e1" }}>
+                        <span style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>{row.taskName}</span>
+                        <span style={{
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: "var(--teal)",
+                          background: "#dbeafe",
+                          padding: "6px 12px",
+                          borderRadius: 100,
+                          border: "1px solid #bfdbfe"
+                        }}>
+                          {row.memberName.split(" ")[0]}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             ))}
@@ -2718,58 +2895,66 @@ function ChoresPage({ data, onToast }) {
 function VibeCheckPage({ data, isAdmin, onToast }) {
   const [vibes, setVibes] = useState(Object.fromEntries(data.roommates.map(r => [r.id, r.vibe])));
   const [myVibe, setMyVibe] = useState("free");
+  const [stagedVibe, setStagedVibe] = useState("free");
 
   return (
-    <div>
-      <div className="page-header fade-up">
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)" }}>
+      <div className="page-header fade-up" style={{ paddingBottom: 16, borderBottom: "1px solid var(--border)", marginBottom: 24 }}>
         <h1 className="page-title">Vibe Check 🌡️</h1>
         <p className="page-subtitle">Know who's available and who needs space</p>
       </div>
 
-      {!isAdmin && (
-        <div className="card fade-up-1" style={{ marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 24, flex: 1, minHeight: 0 }}>
+        <div className="card fade-up-1">
           <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 16 }}>Set Your Status</h3>
           <div className="vibe-grid">
             {[["free", "😊", "Free to chat", "I'm around!"], ["busy", "📚", "Busy", "Working or studying"], ["dnd", "🔕", "Do Not Disturb", "Please don't disturb"]].map(([v, e, name, desc]) => (
-              <div key={v} className={`vibe-card ${myVibe === v ? "selected" : ""}`} onClick={() => { setMyVibe(v); onToast(`Status set to ${name}!`); }}>
+              <div key={v} className={`vibe-card ${stagedVibe === v ? "selected" : ""}`} onClick={() => setStagedVibe(v)}>
                 <div className="vibe-emoji">{e}</div>
                 <div className="vibe-name">{name}</div>
                 <div className="vibe-desc">{desc}</div>
               </div>
             ))}
           </div>
+          <button
+            className="btn btn-amber"
+            style={{ width: "100%", marginTop: 24, padding: "12px", fontSize: 15, fontWeight: 700 }}
+            onClick={() => { setMyVibe(stagedVibe); onToast(`Status updated to ${vibeConfig[stagedVibe].label}!`); }}
+            disabled={myVibe === stagedVibe}
+          >
+            {myVibe === stagedVibe ? "Status Saved ✓" : "Save Status"}
+          </button>
         </div>
-      )}
 
-      <div className="card fade-up-2">
-        <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 20 }}>Roommate Statuses</h3>
-        <div style={{ display: "grid", gap: 14 }}>
-          {[...data.roommates, { id: "admin", name: "Priya Sharma (Admin)", vibe: "free", color: "var(--amber)", avatarBg: "var(--amber-pale)" }].map(r => {
-            const vibe = r.id === "admin" ? "free" : vibes[r.id];
-            const v = vibeConfig[vibe] || vibeConfig.free;
-            return (
-              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", background: "var(--cream)", borderRadius: 12 }}>
-                <div className="avatar avatar-lg" style={{ background: r.avatarBg || "var(--cream)", color: r.color || "var(--slate)" }}>{initials(r.name)}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 16 }}>{r.name}</div>
-                  <div style={{ fontSize: 13, color: "var(--muted)" }}>{r.id === "admin" ? "House Admin" : `₹${r.rentShare}/mo`}</div>
+        <div className="card fade-up-2">
+          <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 20 }}>Roommate Statuses</h3>
+          <div style={{ display: "grid", gap: 14 }}>
+            {/* Create the combined list of everyone, highlighting the current user as "You" */}
+            {(isAdmin
+              ? [{ id: "me", name: "You (House Admin)", color: "var(--amber)", avatarBg: "var(--amber-pale)" }, ...data.roommates]
+              : [{ id: "me", name: "You (Roommate)", color: "var(--teal)", avatarBg: "#ccfbf1" },
+              { id: "admin", name: "Priya Sharma (Admin)", color: "var(--amber)", avatarBg: "var(--amber-pale)" },
+              ...data.roommates.slice(1)] /* Arjun is r1, so slice(1) gets the rest */
+            ).map(r => {
+              const vibe = r.id === "me" ? myVibe : (r.id === "admin" ? "free" : vibes[r.id]);
+              const v = vibeConfig[vibe] || vibeConfig.free;
+              return (
+                <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", background: "var(--cream)", borderRadius: 12 }}>
+                  <div className="avatar avatar-lg" style={{ background: r.avatarBg || "var(--cream)", color: r.color || "var(--slate)" }}>{initials(r.name.replace("You (", "").replace(")", ""))}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, fontSize: 16 }}>{r.name}</div>
+                    <div style={{ fontSize: 13, color: "var(--muted)" }}>{r.id === "admin" || (isAdmin && r.id === "me") ? "House Admin" : "Roommate"}</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, background: "white", padding: "8px 14px", borderRadius: 100, border: "1.5px solid var(--border)" }}>
+                    <span style={{ fontSize: 20 }}>{v.emoji}</span>
+                    <span style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 600, fontSize: 13, color: v.color }}>{v.label}</span>
+                  </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, background: "white", padding: "8px 14px", borderRadius: 100, border: "1.5px solid var(--border)" }}>
-                  <span style={{ fontSize: 20 }}>{v.emoji}</span>
-                  <span style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 600, fontSize: 13, color: v.color }}>{v.label}</span>
-                </div>
-                {isAdmin && r.id !== "admin" && (
-                  <select className="input-field" style={{ width: 140, padding: "8px 12px", fontSize: 13 }} value={vibes[r.id]} onChange={e => setVibes(p => ({ ...p, [r.id]: e.target.value }))}>
-                    <option value="free">😊 Free</option>
-                    <option value="busy">📚 Busy</option>
-                    <option value="dnd">🔕 Do Not Disturb</option>
-                  </select>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div >
+      </div>
     </div >
   );
 }
@@ -2777,7 +2962,7 @@ function VibeCheckPage({ data, isAdmin, onToast }) {
 // ─── ROOMMATE DETAILS PAGE ──────────────────────────────────────────────────────
 function RoommateDetailsPage({ data }) {
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <div className="page-header fade-up">
         <h1 className="page-title">Roommate Details 🪪</h1>
         <p className="page-subtitle">Contact information and permanent addresses</p>
@@ -2816,14 +3001,14 @@ function RoommateDetailsPage({ data }) {
 }
 
 // ─── ROOMMATE MY OVERVIEW ─────────────────────────────────────────────────────
-function RoommateOverview({ data, onNav }) {
-  const me = data.roommates[0]; // Arjun
+function RoommateOverview({ data, onNav, currentUser }) {
+  const me = currentUser || data.roommates[0]; // fallback
   const myPayments = data.payments.filter(p => p.roommate === me.name);
   const totalExpenses = data.expenses.reduce((s, e) => s + e.amount, 0);
   const myShare = Math.round(totalExpenses / (data.roommates.length + 1));
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <div className="page-header fade-up">
         <h1 className="page-title">Welcome, {me.name.split(" ")[0]} 👋</h1>
         <p className="page-subtitle">{data.house.name} · {data.house.address}</p>
@@ -2843,9 +3028,9 @@ function RoommateOverview({ data, onNav }) {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-        <div className="card fade-up-2">
-          <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 16 }}>Pay Rent via UPI</h3>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, flex: 1 }}>
+        <div className="card fade-up-2" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700 }}>Pay Rent via UPI</h3>
           <div className="qr-box">
             <QRCode value={`upi://pay?pa=${data.house.upiId}&am=${me.rentShare}&tn=Rent`} size={130} />
             <div style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 600, fontSize: 14, textAlign: "center" }}>
@@ -2856,20 +3041,25 @@ function RoommateOverview({ data, onNav }) {
           </div>
         </div>
 
-        <div className="card fade-up-2">
-          <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 16 }}>House Members</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {[...data.roommates, { name: "Priya Sharma", id: "admin", color: "var(--amber)", avatarBg: "var(--amber-pale)", isAdmin: true }].map(r => (
-              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div className="avatar" style={{ background: r.avatarBg, color: r.color }}>{initials(r.name)}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 500, fontSize: 14 }}>{r.name} {r.isAdmin && <span className="badge badge-amber" style={{ fontSize: 10 }}>Admin</span>}</div>
+        <div className="card fade-up-2" style={{ display: "flex", flexDirection: "column" }}>
+          <h3 style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 700, marginBottom: 16 }}>Roommate Statuses</h3>
+          <div style={{ display: "grid", gap: 12, overflowY: "auto", flex: 1, minHeight: 0 }}>
+            {[...data.roommates, { name: data.house.adminName, email: data.house.adminEmail, id: "admin", color: "var(--amber)", avatarBg: "var(--amber-pale)", isAdmin: true }].map(r => {
+              const v = vibeConfig[r.vibe || "free"];
+              return (
+                <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "var(--cream)", borderRadius: 12 }}>
+                  <div className="avatar" style={{ background: r.avatarBg, color: r.color }}>{initials(r.name)}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 15, fontFamily: "Plus Jakarta Sans", color: "var(--ink)" }}>{r.name}</div>
+                    <div style={{ fontSize: 12, color: "var(--muted)" }}>{r.isAdmin ? "House Admin" : "Roommate"}</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, background: "white", padding: "6px 12px", borderRadius: 100, border: "1.5px solid var(--border)" }}>
+                    <span style={{ fontSize: 16 }}>{v.emoji}</span>
+                    <span style={{ fontFamily: "Plus Jakarta Sans", fontWeight: 600, fontSize: 12, color: v.color }}>{v.label}</span>
+                  </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 18 }}>{vibeConfig[r.vibe || "free"].emoji}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -2878,11 +3068,12 @@ function RoommateOverview({ data, onNav }) {
 }
 
 // ─── ROOMMATE PAYMENTS PAGE ───────────────────────────────────────────────────
-function RoommatePayments({ data, onToast }) {
+function RoommatePayments({ data, onToast, currentUser }) {
   const [proofFile, setProofFile] = useState(null);
+  const me = currentUser || data.roommates[0];
   const [proofPreview, setProofPreview] = useState(null);
   const proofRef = useRef(null);
-  const me = data.roommates[0];
+  const pendingPayments = data.payments.filter(p => p.roommate === me.name && p.status !== "approved");
 
   const handleProofChange = (e) => {
     const file = e.target.files[0];
@@ -2984,14 +3175,125 @@ function RoommatePayments({ data, onToast }) {
   );
 }
 
+// ─── HOUSE CHAT PAGE ────────────────────────────────────────────────────────────
+function HouseChatPage({ messages, setMessages, currentUser, onToast }) {
+  const [inputText, setInputText] = useState("");
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSend = (e) => {
+    e.preventDefault();
+    if (!inputText.trim()) return;
+
+    const newMessage = {
+      id: "m" + Date.now(),
+      senderName: currentUser.name,
+      senderId: currentUser.id,
+      text: inputText,
+      time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+      avatarBg: currentUser.avatarBg,
+      color: currentUser.color
+    };
+
+    setMessages([...messages, newMessage]);
+    setInputText("");
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)" }}>
+      <div className="page-header fade-up" style={{ paddingBottom: 16, borderBottom: "1px solid var(--border)", marginBottom: 0 }}>
+        <h1 className="page-title">House Chat 💬</h1>
+        <p className="page-subtitle">Message everyone in the house</p>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px 0", display: "flex", flexDirection: "column", gap: 16 }}>
+        {messages.map(m => {
+          const isMe = m.senderId === currentUser.id;
+          return (
+            <div key={m.id} style={{ display: "flex", alignItems: "flex-end", gap: 10, alignSelf: isMe ? "flex-end" : "flex-start", maxWidth: "80%" }}>
+              {!isMe && (
+                <div className="avatar" style={{ background: m.avatarBg, color: m.color, width: 32, height: 32, fontSize: 12, flexShrink: 0 }}>
+                  {initials(m.senderName)}
+                </div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
+                {!isMe && <span style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4, marginLeft: 2 }}>{m.senderName}</span>}
+                <div style={{
+                  background: isMe ? "var(--teal)" : "white",
+                  color: isMe ? "white" : "var(--ink)",
+                  padding: "12px 16px",
+                  borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                  boxShadow: "var(--shadow)",
+                  border: isMe ? "none" : "1px solid var(--border)",
+                  fontSize: 14,
+                  lineHeight: 1.5
+                }}>
+                  {m.text}
+                </div>
+                <span style={{ fontSize: 11, color: "var(--muted)", marginTop: 4, marginRight: isMe ? 2 : 0, marginLeft: isMe ? 0 : 2 }}>{m.time}</span>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div style={{ padding: "16px", background: "white", borderRadius: 16, border: "1px solid var(--border)", boxShadow: "var(--shadow)", display: "flex", gap: 12, alignItems: "center" }}>
+        <input
+          className="input-field"
+          style={{ flex: 1, marginBottom: 0, border: "none", background: "var(--cream)", borderRadius: 100, padding: "12px 20px" }}
+          placeholder="Type a message to the house..."
+          value={inputText}
+          onChange={e => setInputText(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleSend(e)}
+        />
+        <button className="btn btn-teal" style={{ borderRadius: 100, padding: "0 24px", height: 44, display: "flex", alignItems: "center", gap: 8 }} onClick={handleSend} disabled={!inputText.trim()}>
+          <span>Send</span>
+          <span>↗</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = useState("landing");
   const [activeNav, setActiveNav] = useState("overview");
   const [isAdmin, setIsAdmin] = useState(true);
   const [toast, setToast] = useState(null);
-  const [data] = useState(INITIAL_DATA);
+
+  // Dynamic User & Data States
+  const [currentUser, setCurrentUser] = useState(null);
+  const [data, setData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
   const [notifications, setNotifications] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
+
+  // Load house data when user changes
+  const loadHouseData = async (houseId) => {
+    try {
+      setIsLoading(true);
+      const res = await fetch(`http://localhost:5000/api/dashboard/${houseId}`);
+      if (!res.ok) throw new Error("Failed to load dashboard data");
+      const dbData = await res.json();
+      setData(dbData);
+      setChatMessages(dbData.messages || []);
+      setIsLoading(false);
+    } catch (e) {
+      console.error(e);
+      showToast("Error loading home data");
+      setIsLoading(false);
+    }
+  };
 
   const showToast = (msg) => { setToast(msg); };
   const clearToast = () => setToast(null);
@@ -3022,6 +3324,7 @@ export default function App() {
       case "payments": return <PaymentsPage data={data} onToast={showToast} notifications={notifications} onDismissNotif={dismissNotif} />;
       case "expenses": return <ExpensesPage data={data} onToast={showToast} />;
       case "chores": return <ChoresPage data={data} onToast={showToast} />;
+      case "chat": return <HouseChatPage messages={chatMessages} setMessages={setChatMessages} currentUser={{ id: currentUser?._id, name: currentUser?.name, avatarBg: currentUser?.avatarBg, color: currentUser?.color }} onToast={showToast} />;
       case "vibes": return <VibeCheckPage data={data} isAdmin={true} onToast={showToast} />;
       case "roommate-details": return <RoommateDetailsPage data={data} />;
       default: return <AdminOverview data={data} onNav={setActiveNav} notifications={notifications} onDismissNotif={dismissNotif} />;
@@ -3030,13 +3333,14 @@ export default function App() {
 
   const renderRoommatePage = () => {
     switch (activeNav) {
-      case "my-overview": return <RoommateOverview data={data} onNav={setActiveNav} />;
-      case "my-payments": return <RoommatePayments data={data} onToast={showToast} />;
+      case "my-overview": return <RoommateOverview data={data} onNav={setActiveNav} currentUser={currentUser} />;
+      case "my-payments": return <RoommatePayments data={data} onToast={showToast} currentUser={currentUser} />;
       case "expenses": return <ExpensesPage data={data} onToast={showToast} />;
       case "chores": return <ChoresPage data={data} onToast={showToast} />;
+      case "chat": return <HouseChatPage messages={chatMessages} setMessages={setChatMessages} currentUser={{ id: currentUser?._id, name: currentUser?.name, avatarBg: currentUser?.avatarBg, color: currentUser?.color }} onToast={showToast} />;
       case "vibes": return <VibeCheckPage data={data} isAdmin={false} onToast={showToast} />;
       case "roommate-details": return <RoommateDetailsPage data={data} />;
-      default: return <RoommateOverview data={data} onNav={setActiveNav} />;
+      default: return <RoommateOverview data={data} onNav={setActiveNav} currentUser={currentUser} />;
     }
   };
 
@@ -3055,17 +3359,25 @@ export default function App() {
         {screen === "login" && (
           <RoommateLogin
             onBack={() => setScreen("landing")}
-            onLogin={(formData) => {
-              showToast(`👋 Welcome back, ${formData.email}!`);
-              setScreen("roommate-dash");
-              setActiveNav("expenses");
-              setIsAdmin(false);
+            onLogin={(user) => {
+              setCurrentUser(user);
+              setIsAdmin(user.role === "admin");
+              loadHouseData(user.houseId);
+
+              showToast(`👋 Welcome back, ${user.name}!`);
+              setScreen(user.role === "admin" ? "admin-dash" : "roommate-dash");
+              setActiveNav(user.role === "admin" ? "overview" : "expenses");
             }}
           />
         )}
         {screen === "admin-reg" && (
-          <AdminRegistration onComplete={(formData, login) => {
-            if (formData || login) goAdminDash();
+          <AdminRegistration onComplete={async (result) => {
+            if (result.dbHouse && result.dbAdmin) {
+              setCurrentUser(result.dbAdmin);
+              setIsAdmin(true);
+              await loadHouseData(result.dbHouse._id);
+              goAdminDash();
+            }
           }} />
         )}
         {screen === "invite" && (
@@ -3075,16 +3387,11 @@ export default function App() {
           />
         )}
         {(screen === "admin-dash" || screen === "roommate-dash") && (
-          <div style={{ display: "flex" }}>
-            <Sidebar active={activeNav} onNav={setActiveNav} isAdmin={isAdmin} notifCount={isAdmin ? notifications.length : 0} />
-            <main className="main">
-              {/* demo switcher */}
-              <div style={{ position: "fixed", top: 20, right: 24, display: "flex", gap: 8, background: "white", padding: "6px 8px", borderRadius: 10, boxShadow: "var(--shadow)", border: "1px solid var(--border)", zIndex: 200 }}>
-                <button className={`btn btn-sm ${isAdmin ? "btn-amber" : "btn-outline"}`} onClick={goAdminDash}>🏡 Admin View</button>
-                <button className={`btn btn-sm ${!isAdmin ? "btn-teal" : "btn-outline"}`} onClick={goRoommateDash}>🙋 Roommate View</button>
-                <button className="btn btn-sm btn-outline" onClick={() => setScreen("landing")}>← Home</button>
-              </div>
-              {isAdmin ? renderAdminPage() : renderRoommatePage()}
+          <div style={{ display: "flex", width: "100%" }}>
+            <Sidebar active={activeNav} onNav={setActiveNav} isAdmin={isAdmin} currentUser={currentUser} notifCount={isAdmin ? notifications.length : 0} onLogout={() => { setCurrentUser(null); setData(null); setScreen("landing"); }} />
+            <main className="main" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+              {isLoading && <div style={{ padding: 40, textAlign: "center", color: "var(--muted)" }}>Loading dashboard...</div>}
+              {!isLoading && data && (isAdmin ? renderAdminPage() : renderRoommatePage())}
             </main>
           </div>
         )}
