@@ -1692,6 +1692,27 @@ function ExpensesPage({ data, onToast }) {
 
   const [requiredItems, setRequiredItems] = useState([]);
   const [purchasedItems, setPurchasedItems] = useState([]);
+<<<<<<< HEAD
+=======
+  const [loading, setLoading] = useState(true);
+
+  // Fetch initial data from backend
+  useEffect(() => {
+    fetch("http://localhost:5000/api/data")
+      .then(res => res.json())
+      .then(dbData => {
+        const required = (dbData.requiredItems || []).map(r => ({ ...r, id: r.id || r._id }));
+        const purchased = (dbData.purchasedItems || []).map(p => ({ ...p, id: p.id || p._id }));
+        setRequiredItems(required);
+        setPurchasedItems(purchased);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
+>>>>>>> 72daf0d157497217c70445046139d4249d51f3f6
 
   const activeExpense = activeExpenseId
     ? purchasedItems.find(e => (e._id || e.id) === activeExpenseId)
@@ -1770,9 +1791,41 @@ function ExpensesPage({ data, onToast }) {
     };
     setPurchasedItems(prev => [newItem, ...prev]);
 
+<<<<<<< HEAD
     if (purchasingRequiredId) {
       setRequiredItems(prev => prev.filter(r => String(r._id || r.id) !== String(purchasingRequiredId)));
       setPurchasingRequiredId(null);
+=======
+    try {
+      const res = await fetch("http://localhost:5000/api/purchased-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const savedItem = await res.json();
+      if (savedItem._id && !savedItem.id) savedItem.id = savedItem._id;
+      setPurchasedItems(prev => [savedItem, ...prev]);
+
+      if (purchasingRequiredId) {
+        await fetch(`http://localhost:5000/api/required-items/${purchasingRequiredId}`, { method: "DELETE" });
+        setRequiredItems(prev => prev.filter(r => r._id !== purchasingRequiredId));
+        setPurchasingRequiredId(null);
+      }
+
+      setPurchasedForm({
+        name: "",
+        quantity: "",
+        totalPrice: "",
+        purchasedBy: "",
+        billFile: null,
+        billPreview: null,
+      });
+      setShowAddPurchased(false);
+      onToast?.(`Expense added for ${name}. Everyone has been notified of their share.`);
+    } catch (e) {
+      console.error(e);
+      onToast?.("Error adding expense.");
+>>>>>>> 72daf0d157497217c70445046139d4249d51f3f6
     }
 
     setPurchasedForm({
@@ -1918,7 +1971,7 @@ function ExpensesPage({ data, onToast }) {
             const paidShares = exp.split?.filter(s => s.status === "Paid").length || 0;
             const progressPercent = totalShares ? Math.round((paidShares / totalShares) * 100) : 0;
             return (
-              <div key={exp.id} className="expense-row">
+              <div key={exp._id || exp.id} className="expense-row">
                 <div className="expense-icon" style={{ background: "#dcfce7" }}>🧾</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 500, fontSize: 14 }}>{exp.name}</div>
@@ -1950,7 +2003,7 @@ function ExpensesPage({ data, onToast }) {
                   <button
                     className="btn btn-sm btn-outline"
                     style={{ marginTop: 8 }}
-                    onClick={() => setActiveExpenseId(exp.id)}
+                    onClick={() => setActiveExpenseId(exp._id || exp.id)}
                   >
                     View details
                   </button>
@@ -2256,7 +2309,7 @@ function ExpensesPage({ data, onToast }) {
                           {s.status === "Pending" && (
                             <button
                               className="btn btn-sm btn-outline"
-                              onClick={() => markSharePaid(activeExpense.id, s.userId)}
+                              onClick={() => markSharePaid(activeExpense._id || activeExpense.id, s.userId)}
                             >
                               Mark paid
                             </button>
