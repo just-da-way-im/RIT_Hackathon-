@@ -1680,7 +1680,7 @@ function ExpensesPage({ data, onToast }) {
   const [purchasingRequiredId, setPurchasingRequiredId] = useState(null);
   const [activeExpenseId, setActiveExpenseId] = useState(null);
 
-  const [requiredForm, setRequiredForm] = useState({ name: "", quantity: "", estimatedPrice: "" });
+  const [requiredForm, setRequiredForm] = useState({ name: "", quantity: "" });
   const [purchasedForm, setPurchasedForm] = useState({
     name: "",
     quantity: "",
@@ -1731,9 +1731,8 @@ function ExpensesPage({ data, onToast }) {
     if (!requiredForm.name || !requiredForm.quantity) return;
 
     const payload = {
-      name: requiredForm.name,
-      quantity: requiredForm.quantity,
-      estimatedPrice: Number(requiredForm.estimatedPrice) || 0,
+      name: requiredForm.name.trim(),
+      quantity: String(requiredForm.quantity).trim(),
       addedBy: "You"
     };
 
@@ -1743,15 +1742,19 @@ function ExpensesPage({ data, onToast }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      const savedItem = await res.json();
+      const data = await res.json();
+      if (!res.ok) {
+        onToast?.(data.error || data.message || "Error adding required item.");
+        return;
+      }
+      const savedItem = data;
       setRequiredItems(prev => [savedItem, ...prev]);
-
-      setRequiredForm({ name: "", quantity: "", estimatedPrice: "" });
+      setRequiredForm({ name: "", quantity: "" });
       setShowAddRequired(false);
       onToast?.("Required item added to the shared list.");
     } catch (e) {
       console.error(e);
-      onToast?.("Error adding required item.");
+      onToast?.("Error adding required item. Is the backend running on port 5000?");
     }
   };
 
@@ -1759,7 +1762,7 @@ function ExpensesPage({ data, onToast }) {
     setPurchasedForm({
       name: item.name,
       quantity: item.quantity,
-      totalPrice: item.estimatedPrice ? String(item.estimatedPrice) : "",
+      totalPrice: "",
       purchasedBy: "Priya", // Pre-fill with current user's first name
       billFile: null,
       billPreview: null,
@@ -1880,7 +1883,6 @@ function ExpensesPage({ data, onToast }) {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 500, fontSize: 14 }}>
                       {item.name}
-                      {item.estimatedPrice ? <span style={{ fontSize: 12, color: "var(--amber)", marginLeft: 6 }}>Est: {currency(item.estimatedPrice)}</span> : null}
                     </div>
                     <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
                       Qty: {item.quantity} · Added by {item.addedBy} {item.createdAt ? `· ${new Date(item.createdAt).toLocaleDateString("en-IN")}` : ""}
@@ -2069,16 +2071,6 @@ function ExpensesPage({ data, onToast }) {
                   placeholder="2 packets / 5 kg"
                   value={requiredForm.quantity}
                   onChange={e => setRequiredForm(p => ({ ...p, quantity: e.target.value }))}
-                />
-              </div>
-              <div className="input-group" style={{ gridColumn: "1 / -1" }}>
-                <label>Estimated Price (₹) - Optional</label>
-                <input
-                  className="input-field"
-                  type="number"
-                  placeholder="120"
-                  value={requiredForm.estimatedPrice}
-                  onChange={e => setRequiredForm(p => ({ ...p, estimatedPrice: e.target.value }))}
                 />
               </div>
             </div>
